@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Andrea Leganza - 788513</title>
+    <script src="js/tween/tween.umd.js"></script>
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.144.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.144.0/examples/jsm/",
+                "three/post/": "https://unpkg.com/three@0.144.0/examples/js/postProcessing/",
+                
+                "GUI": "./Libs/datgui/dat.gui.module.js",
+                "OrbitControls": "https://unpkg.com/three@0.144.0/examples/jsm/controls/OrbitControls.js"
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: black;   
+        }
+    </style>
+</head>
+<body>
+
+<script type="module">
+
+    import * as THREE from 'three';
+
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'OrbitControls';
+    import { GUI } from 'GUI'
+
+    import { EffectComposer } from  'https://threejs.org/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from      'https://threejs.org/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'https://threejs.org/examples/jsm/postprocessing/UnrealBloomPass.js';
+    import { BokehPass } from       'https://threejs.org/examples/jsm/postprocessing/BokehPass.js';
+
+    //import { GodRaysFakeSunShader, GodRaysDepthMaskShader, GodRaysCombineShader, GodRaysGenerateShader } from 'https://threejs.org/examples/jsm/shaders/GodRaysShader.js';
+
+    const FogMode = {
+        none : 0,
+        linear : 1,
+        exp : 2
+    }
+
+    const AntialiasMode = {
+        off : false,
+        on : true
+    }
+
+    const ShadowMode = {
+        off : false,
+        on : true
+    }
+
+    const GridMode = {
+        off : false,
+        on : true
+    }
+
+    const SkyMode = {
+        off : 0,
+        embedded : 1,
+        custom : 2
+    }
+
+    const SkyTime = {
+        day : true,
+        night: false
+    }
+
+    const DebugMode = {
+        off : false,
+        on  : true
+    }
+
+    const GrassMode = {
+        off : false,
+        on  : true
+    }
+
+    const GUIMode = {
+        off : false,
+        on  : true
+    }
+
+    const PostProcessingMode = {
+        off : false,
+        on  : true
+    }
+
+    const NightMode = {
+        off : false,
+        on  : true
+    }
+
+    //Needed to make raw animation code time indipentend
+    var clock = new THREE.Clock();
+    var deltaTime;
+
+    //Settings
+    var debugMode = DebugMode.on
+    var nightMode = NightMode.on
+    var gridMode = GridMode.on
+    var fogMode = FogMode.linear
+    var antialias = AntialiasMode.on
+    var shadowsMode = ShadowMode.on
+    var lightsShadow = ShadowMode.on
+    var skyMode = SkyMode.embedded
+    var grassMode = GrassMode.on
+    var gui = GUIMode.on
+    var postProcessingMode = PostProcessingMode.on;
+    var skyTime = SkyTime.day; 
+
+    let skybox;
+    let skyEmbedded;
+    let sea;
+    let grid;
+
+    //Ligths
+    let ambientLight;
+    let spotLight;
+    var torchLights = []
+    var torchLightsTweens = []
+
+    //Post processing
+    const bloomParams = {
+        exposure: 1,
+        bloomStrength: 0.4,
+        bloomThreshold: 0,
+        bloomRadius: 0
+    };
+
+    const bokehParams = {
+        focus : 170,
+        aperture : 1.5,
+        maxblur : 0.01,
+        width : window.innerWidth,
+        height : window.innerHeight
+    }
+
+    const postProcessing = {};
+
+    //Quaternion
+//   let quaternion = new THREE.Quaternion().setFromAxisAngle( new THREE.Vector3(0, 0, 1).normalize(), 0.5 );
+
+    //Renderer
+    const renderer = new THREE.WebGLRenderer({antialias: antialias}); 
+    renderer.setSize( window.innerWidth, window.innerHeight ); 
+    renderer.shadowMap.enabled = shadowsMode;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.autoClear = false;
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.toneMapping = THREE.LinearToneMapping;
+    document.body.appendChild( renderer.domElement );
+
+    //Scene
+    const scene = new THREE.Scene(); 
+
+     //Camera
+    const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000 ); 
+    camera.far = 100;
+    camera.position.y = 1.57;
+    camera.position.z = 5;
+    
+    //Camera Controls
+    const controls = new OrbitControls( camera, renderer.domElement );
+    controls.keyPanSpeed = 10;
+    controls.panSpeed = 1;
+    controls.rotateSpeed = 1;
+    controls.zoomSpeed = 1;
+    controls.autoRotate = false;
+    controls.maxDistance = 10;
+    controls.maxPolarAngle = THREE.MathUtils.degToRad(85); 
+    //Must be called after any manual changes to the camera's transform
+    controls.update() //mandatory
+
+    //Scene setup
+    placeFog(scene,fogMode)
+
+    //Global light
+    ambientLight = new THREE.AmbientLight(0xffffff)
+    ambientLight.intensity = 0.7;
+    scene.add(ambientLight);
+
+    if (skyMode == SkyMode.custom){
+        placeSkyBox(scene,skyTime);
+    }
+
+    //Player
+    const pGeo = new THREE.BoxGeometry( 1, 1, 1 );
+    pGeo.translate( 0, 0, 0 );
+    const pMaterial = new THREE.MeshLambertMaterial( { color: 0xeeeeee } );
+    const pMesh = new THREE.Mesh( pGeo, pMaterial );
+    pMesh.castShadow = true;
+    scene.add( pMesh );
+    
+     //Local light
+    spotLight = new THREE.SpotLight(0xd4d49c, 0.5);
+    spotLight.position.set(0, 5, 1.4);
+    spotLight.castShadow = lightsShadow;
+    spotLight.penumbra = 0.05;
+    spotLight.intensity = 1;
+    spotLight.distance = 10;
+    spotLight.angle = 0.7;
+    spotLight.target = pMesh; //target has to be added before this command
+    scene.add(spotLight);
+
+    //Support
+    if (gridMode){ 
+       placeGrid();
+    }
+    
+     //GUI
+     if (gui){
+        placeGUI(scene, renderer, camera, controls, false);
+    }
+
+    //Post processing
+    if (postProcessingMode){
+        setupPostProcessing(renderer);
+    }
+
+    const animationsObjects = [];
+    //createMoveAnimation({pMesh,startPosition: pMesh.position,endPosition: new THREE.Vector3(0, 0, 15) })
+
+    loadEnvironment()
+
+//SUPPORT FUNCTIONS
+
+    function loadEnvironment(){
+        const loader = new GLTFLoader();
+
+        loader.load( '3D/seaport/scene.gltf', function ( gltf ) {
+            gltf.scene.scale.set(0.01, 0.01, 0.01);
+            gltf.scene.traverse((o) => {
+                if (o.isMesh) {
+                    o.castShadow = true;
+                    o.receiveShadow = true;
+
+                    if (debugMode){
+                        console.log("Loading mesh: "+o.name);
+                    }
+                    if (o.name == "Sky_Sky_0"){
+                        skyEmbedded = o;
+                        skyEmbedded.visible = skyMode == SkyMode.embedded;
+                    }
+                    else if (o.name == "Environment"){
+                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/seaport/textures/Environment_normal.png' , function ( texture ) {
+                            o.material.normalMap = texture
+                            o.material.normalScale = new THREE.Vector3( 1, 1 );
+                        });
+                    }
+                    else if (o.name == "Sea_sea_0"){
+                        sea = o;
+                    }
+                    else if (o.name.toLowerCase().includes("torch")){
+                        placeTorchLight(o);
+                    }
+
+                    if (o.material.emissiveMap!=null && o.name != "Sky_Sky_0") {
+                        if (debugMode){
+                            console.log("Fixing emissive for: "+o.name);
+                        }
+                        o.material.emissiveIntensity = 100; //increase windows lights
+                    }
+                    //if required
+                    //o.material.normalScale.y *= -1;
+                }
+            });
+            scene.add( gltf.scene );
+
+            //we can now start the whole engine
+            animate();
+
+        }, undefined, function ( error ) {
+
+            console.error( error );
+
+        } );
+ 
+    }
+
+    function animateTorchLight(light){
+        new TWEEN.Tween(light)
+            .to({intensity: 0}, 1500)
+            // .delay (1000)
+             .yoyo(true)
+             .repeat(Infinity)
+             .easing(TWEEN.Easing.Cubic.InOut)
+             .onUpdate(() => render())
+             .start();
+    }
+
+    function animate() {
+        requestAnimationFrame( animate );
+
+        deltaTime = clock.getDelta();
+
+        if (controls.autoRotate) controls.update();
+        
+        postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
+
+        animationsObjects.forEach(mesh => {
+            if (mesh.userData.clock && mesh.userData.mixer) {
+                mesh.userData.mixer.update(mesh.userData.clock.getDelta());
+            }
+        })
+
+        if (skyEmbedded!=null && skyEmbedded.visible) {
+            skyEmbedded.rotation.z += 0.01*deltaTime; 
+            //sky.position.applyQuaternion(quaternion);
+        }
+        
+        TWEEN.update(deltaTime);
+
+    }
+    
+    function createMoveAnimation({mesh,startPosition,endPosition}) {
+        mesh.userData.mixer = new THREE.AnimationMixer(mesh);
+        let track = new THREE.VectorKeyframeTrack('.position', [0, 1, 2], [
+            startPosition.x,
+            startPosition.y,
+            startPosition.z,
+            endPosition.x,
+            endPosition.y,
+            endPosition.z,
+            ]
+        );
+        const animationClip = new THREE.AnimationClip(null, 5, [track]);
+        const animationAction = mesh.userData.mixer.clipAction(animationClip);
+        animationAction.setLoop(THREE.LoopOnce);
+        animationAction.play();
+        mesh.userData.clock = new THREE.Clock();
+        animationsObjects.push(mesh);
+    };
+
+    function placeGround(zAxisDeltaMult){
+        const groundGeo = new THREE.BoxGeometry( 5, 0.01, 15 );
+        groundGeo.translate( 0, 0, -zAxisDeltaMult*15 );
+        const groundTexture = new THREE.TextureLoader().load( 'textures/pavement.jpg' , function ( texture ) {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            texture.offset.set( 0, 0 );
+            texture.repeat.set( 1, 4 );
+        } );
+        const groundNormalTexture = new THREE.TextureLoader().load( 'textures/pavement_n.png' , function ( texture ) {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        } );
+        const groundMaterial = new THREE.MeshLambertMaterial( { color: 0xbbbbbb, map:groundTexture, normalMap:groundNormalTexture, normalScale: new THREE.Vector3( 1, 4 ) } );
+        const groundMesh = new THREE.Mesh( groundGeo, groundMaterial );
+        groundMesh.receiveShadow = true
+        scene.add( groundMesh );
+    }
+
+    function placeGrass(scene){
+        let planeGeometry = new THREE.PlaneGeometry(2000, 2000);
+        planeGeometry.rotateX(-Math.PI / 2);
+        const planeTexture = new THREE.TextureLoader().load( 'Textures/grass.jpg' , function ( texture ) {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.offset.set( 0, 0 );
+            texture.repeat.set( 1000, 1000 );
+
+        } );
+        const planeNormalTexture = new THREE.TextureLoader().load( 'Textures/grass_n.png' , function ( texture ) {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        } );
+        const planeMaterial = new THREE.MeshLambertMaterial( { color: 0xbbbbbb, map:planeTexture, normalMap:planeNormalTexture, normalScale: new THREE.Vector3( 1000, 1000 ) } );
+
+        const  plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.position.y = 0;
+        plane.receiveShadow = true;
+        scene.add(plane);
+    }
+
+    function placeFog(scene, mode, near = 5, far = 41, color=0x000000, expDensity = 0.12){
+        if (mode == FogMode.linear) {
+            const near = 5;
+            const far = 41;
+            scene.fog = new THREE.Fog(color, near, far);
+        }
+        else if (mode == FogMode.exp){
+            const density = expDensity;
+            scene.fog = new THREE.FogExp2(color, density);
+        }
+        else {
+            scene.fog = null;
+        }
+    }
+    function placeGrid(){
+        grid = new THREE.GridHelper(2000, 2000);
+        grid.position.y = 0;
+        grid.material.opacity = 0.25;
+        grid.material.transparent = true;
+        grid.visible = false;
+        scene.add(grid);
+    }
+
+    function placeSkyBox(scene, day=SkyTime.day){
+        let skyboxImage = day ? "miramar" :"galaxy";
+        let folder = day ? "day" :"night";
+
+        const materialArray = createMaterialArray(folder,skyboxImage);
+
+        var skyboxGeo = new THREE.BoxGeometry(9, 9, 9);
+        skybox = new THREE.Mesh(skyboxGeo, materialArray);
+
+        scene.add(skybox);
+    }
+
+    function createPathStrings(folder,filename, ext) {
+        const basePath = "./Textures/Skybox/"+folder+"/";
+        const baseFilename = basePath + filename;
+        const fileType = "."+ext;
+        const sides = ["ft", "bk", "up", "dn", "rt", "lf"];
+        const pathStings = sides.map(side => {
+            return baseFilename + "_" + side + fileType;
+        });
+
+        return pathStings;
+    }
+
+    function createMaterialArray(folder, filename) {
+        const skyboxImagepaths = createPathStrings(folder,filename,"jpg");
+
+        if (debugMode) console.log(skyboxImagepaths)
+
+        const materialArray = skyboxImagepaths.map(image => {
+            let texture = new THREE.TextureLoader().load(image);
+            return new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide }); //flip normal
+        });
+        return materialArray;
+    }
+
+    function placeGUI(scene, renderer, camera, controls, opened = true){
+        const gui = new GUI()
+
+        const cameraFolder = gui.addFolder('Camera')
+        cameraFolder.add(camera.position, 'x', 0, 50)
+        cameraFolder.add(camera.position, 'y', 0, 50)
+        cameraFolder.add(camera.position, 'z', 0, 50)
+        cameraFolder.add(camera.rotation, 'x', -180, 180).name("RotX").step(1).onChange((value) => {camera.rotation.x = THREE.MathUtils.degToRad(value);});
+        cameraFolder.add(camera.rotation, 'y', -180, 180).name("RotY").step(1).onChange((value) => {camera.rotation.y = THREE.MathUtils.degToRad(value);});
+        cameraFolder.add(camera.rotation, 'z', -180, 180).name("RotZ").step(1).onChange((value) => {camera.rotation.z = THREE.MathUtils.degToRad(value);});
+        if (opened) cameraFolder.open()
+
+        const controlsFolder = gui.addFolder('Controls')
+        controlsFolder.add(controls, 'keyPanSpeed', 0, 50)
+        controlsFolder.add(controls, 'panSpeed', 0, 50)
+        controlsFolder.add(controls, 'rotateSpeed', 0, 50)
+        controlsFolder.add(controls, 'zoomSpeed', 0, 50)
+        controlsFolder.add(controls, 'autoRotate')
+        controlsFolder.add(controls, 'autoRotateSpeed', 0, 50)
+        if (opened) controlsFolder.open()
+
+        const sceneFolder = gui.addFolder("Scene")
+
+        var skyTimeParams = {on: true};
+        sceneFolder.add(skyTimeParams,'on').name("Day/Night").setValue(true).onChange( function() {
+            skyTime = skyTime == SkyTime.day ? SkyTime.night : SkyTime.day;
+
+            if (debugMode) console.log("clicked sky time: "+skyTime + " skyMode: "+skyMode); 
+
+            if (skyMode == SkyMode.embedded){
+                const text = skyTime == SkyTime.day ? "material_4_baseColor" : "material_4_baseColor_night";
+                const textureName = '3D/seaport/textures/'+text+'.jpg';
+
+                new THREE.TextureLoader().load(textureName, texture => {
+                    //Update Texture
+                    skyEmbedded.material.map = texture;
+                    skyEmbedded.material.needsUpdate = true;
+
+                    if (debugMode) console.log("loaded: "+textureName); 
+                },
+                xhr => {
+                    //Download Progress
+                    console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+                },
+                error => {
+                    //Error CallBack
+                    console.log("An error happened" + error);
+                }
+                );
+            }
+            
+            spotLight.visible = skyTime == SkyTime.day;
+
+            if (skyTime == SkyTime.night){
+                ambientLight.visible = true
+                ambientLight.color.setHex(0x09489f);
+            }
+            else {
+                ambientLight.color.setHex(0xffffff);
+            }
+            
+            fogMode = skyTime == SkyTime.night ? FogMode.exp : FogMode.linear;
+
+            if (fogMode == FogMode.exp) {
+                scene.fog.density = 0.12;
+            }
+
+            placeFog(scene,fogMode)
+
+        } );
+
+        //Grid
+        sceneFolder.add(grid, 'visible').name("Grid")
+        
+        //Fog
+        var fogButton = { fog:function(){ 
+            let currentMode = fogMode;
+            fogMode = currentMode == FogMode.none ? FogMode.linear : currentMode == FogMode.exp ? FogMode.none : FogMode.exp;
+            placeFog(scene,fogMode)
+        }};
+        sceneFolder.add(fogButton,'fog').name("Switch Fog mode (Linear, Exp, off)");
+        
+        var fogColorParams = {color: "#000000"};
+        sceneFolder.addColor(fogColorParams,'color').name("Fog color").onChange( function() {
+             scene.fog.color.set( fogColorParams.color );
+        } );
+        sceneFolder.add(scene.fog, 'near', 0, 50).onChange( function(value) {
+            scene.fog.near = value;
+        } );
+        sceneFolder.add(scene.fog, 'far', 0, 50).onChange( function(value) {
+            scene.fog.far = value;
+        } );
+        var fogDensityParams = {density: 0.1};
+        sceneFolder.add(fogDensityParams, 'density', 0, 3).name("Exp. fog density").step(0.01).onChange( function(value) {
+            if (fogMode == FogMode.exp) {
+                scene.fog.density = value;
+            }
+        } );
+        sceneFolder.add(renderer.shadowMap, 'enabled').name("Shadow map")
+        if (opened)  sceneFolder.open()
+
+        //Ambient light
+        const ambientLightFolder = gui.addFolder("Ambient")
+        ambientLightFolder.add(ambientLight,'visible').name("Enabled");
+        ambientLightFolder.add(ambientLight, 'intensity', 0, 100).name("Intensity").step(0.01)
+        var ambientLightColorParams = {color: "#FFFFFF"};
+        ambientLightFolder.addColor(ambientLightColorParams,'color').name("Light color").onChange( function() {
+             ambientLight.color.set( ambientLightColorParams.color );
+        } );
+        if (opened)  ambientLightFolder.open()
+
+        const torchesFolder = gui.addFolder("Torches")
+        //Torches lights
+
+        var torchLightEnabledParams = {enabled: true};
+        torchesFolder.add(torchLightEnabledParams, 'enabled').name("Torches enabled").onChange( function(value) {
+            for (const torch of torchLights){
+                torch.light.visible = value;
+            }
+        } );
+
+        var torchLightAnimatedParams = {animated: false};
+        torchesFolder.add(torchLightAnimatedParams, 'animated').name("Torches animated").onChange( function(value) {
+  
+            while (torchLightsTweens.length) {
+                let tween = torchLightsTweens.pop()
+                if (tween.isPlaying()) {
+                    tween.pause();
+                }
+                else {
+                    tween.start();
+                }
+            }
+            
+        } );
+
+        var torchLightColorParams = {color: "#f4ccbd"};
+        torchesFolder.addColor(torchLightColorParams,'color').name("Torches color").onChange( function(color) {
+            for (const torch of torchLights){
+                torch.light.color.set( color );
+                torch.mesh.material.color.setHex( color );
+            }
+        } );
+        
+
+        var torchLightIntensityParams = {intensity: 1};
+        torchesFolder.add(torchLightIntensityParams, 'intensity', 0, 100).name("Torches intensity").step(0.01).onChange( function(value) {
+            for (const torch of torchLights){
+                torch.light.intensity = value;
+            }
+        } );
+
+        if (opened) torchesFolder.open();
+
+        //Spotlight
+        const lightsFolder = gui.addFolder("Spotlight")
+        lightsFolder.add(spotLight,'visible').name("Enabled");
+        lightsFolder.add(spotLight,'castShadow').name("Shadows");
+        var lightColorParams = {color: "#d4d49c"};
+        lightsFolder.addColor(lightColorParams,'color').name("Light color").onChange( function() {
+             spotLight.color.set( lightColorParams.color );
+        } );
+        lightsFolder.add(spotLight, 'intensity', 0, 100).step(0.01)
+        lightsFolder.add(spotLight, 'distance', 0, 100).step(0.01)
+        lightsFolder.add(spotLight, 'angle', 0, 1).step(0.1)
+        lightsFolder.add(spotLight, 'penumbra', 0, 1).step(0.01)
+        lightsFolder.add(spotLight.position, 'x', -100, 100).step(0.01)
+        lightsFolder.add(spotLight.position, 'y', -100, 100).step(0.01)
+        lightsFolder.add(spotLight.position, 'z', -100, 100).step(0.01)
+        lightsFolder.add(spotLight.rotation, 'x', -180, 180).name("RotX").step(0.5).onChange((value) => {spotLight.rotation.x = THREE.MathUtils.degToRad(value);});
+        lightsFolder.add(spotLight.rotation, 'y', -180, 180).name("RotY").step(0.5).onChange((value) => {spotLight.rotation.y = THREE.MathUtils.degToRad(value);});
+        lightsFolder.add(spotLight.rotation, 'z', -180, 180).name("RotZ").step(0.5).onChange((value) => {spotLight.rotation.z = THREE.MathUtils.degToRad(value);});
+        lightsFolder.add(spotLight.shadow.mapSize, 'width', 0, 2048)
+        lightsFolder.add(spotLight.shadow.mapSize, 'height', 0, 2048)
+        lightsFolder.add(spotLight.shadow.camera, 'near', 0, 2048)
+        lightsFolder.add(spotLight.shadow.camera, 'far', 0, 2048)
+        lightsFolder.add(spotLight.shadow.camera, 'fov', 0, 180)
+
+        if (opened) lightsFolder.open()
+
+         //sky
+        const skyFolder = gui.addFolder("Sky")
+        var skyButton = { sky:function(){ 
+            
+            const currentMode = skyMode;
+
+            skyMode = currentMode == SkyMode.off ? SkyMode.embedded : currentMode == SkyMode.embedded ? SkyMode.custom : SkyMode.off;
+
+            skyEmbedded.visible = skyMode == SkyMode.embedded;
+
+            if (skybox == null){
+                placeSkyBox(scene,skyTime);
+            }
+            
+            skybox.visible = skyMode == SkyMode.custom;
+
+            if (debugMode) console.log("clicked sky: "+skyMode); 
+        }};
+        skyFolder.add(skyButton,'sky').name("Mode (Off, Embedded, Custom)");
+        if (opened) skyFolder.open()
+
+
+        //post processing
+        const fxFolder = gui.addFolder("Post processing")
+        var postProcessingButton = { post:function(){ 
+            
+            if (postProcessing.composer==null){
+                setupPostProcessing(renderer)
+            }
+
+            postProcessingMode =! postProcessingMode;
+
+            console.log("clicked pp: "+postProcessingMode); 
+        }};
+        fxFolder.add(postProcessingButton,'post').name("Post processing");
+       
+        //Bloom
+        fxFolder.add( bloomParams, 'exposure', 0.1, 2 ).name("Bloom exp").onChange( function ( value ) {
+            renderer.toneMappingExposure = Math.pow( value, 4.0 );
+        } );
+
+        fxFolder.add( bloomParams, 'bloomThreshold', 0.0, 1.0 ).name("Bloom threshold").onChange( function ( value ) {
+           postProcessing.bloomPass.threshold = Number( value );
+
+        } );
+
+        fxFolder.add( bloomParams, 'bloomStrength', 0.0, 3.0 ).name("Bloom strength").onChange( function ( value ) {
+            postProcessing.bloomPass.strength = Number( value );
+        } );
+
+        fxFolder.add( bloomParams, 'bloomRadius', 0.0, 1.0 ).name("Bloom radius").step( 0.01 ).onChange( function ( value ) {
+            postProcessing.bloomPass.radius = Number( value );
+        } );
+
+        //Dof
+
+        fxFolder.add( bokehParams, 'focus', 0.1, 3000 ).name("Bokeh focus").step( 10 ).onChange( function ( value ) {
+           postProcessing.bokehPass.uniforms[ 'focus' ].value = Number( value );
+        } );
+
+        fxFolder.add( bokehParams, 'aperture', 0.0, 10.0 ).name("Bokeh aperture").step( 0.1 ).onChange( function ( value ) {
+            postProcessing.bokehPass.uniforms[ 'aperture' ].value = Number( value )* 0.00001;
+        } );
+
+        fxFolder.add( bokehParams, 'maxblur', 0.0, 0.01 ).name("Bokeh maxBlur").step( 0.001 ).onChange( function ( value ) {
+            postProcessing.bokehPass.uniforms[ 'maxblur' ].value = Number( value );
+        } );
+
+        if (opened) fxFolder.open()
+
+         //Audio
+        const audioFolder = gui.addFolder("Audio")
+        
+        let player = document.getElementById('audioPlayer');
+        let playerSeagull = document.getElementById('audioSeagullPlayer');
+
+        var audioPlayingParams = {on: player.paused};
+        audioFolder.add(audioPlayingParams,'on').name("Audio").setValue(false).onChange( function() {
+            player.paused ? player.play() : player.pause();
+            playerSeagull.paused ? playerSeagull.play() : playerSeagull.pause();
+        } );
+        var audioVolumeParams = {volume: player.volume};
+        audioFolder.add(player, 'volume', 0, 1).name("Volume").setValue(0.05).step(0.001).onChange( function(value) {
+            player.volume = value;
+            playerSeagull.volume = player.volume;
+
+        } );
+        if (opened) audioFolder.open()
+
+    }
+
+    function setupPostProcessing(renderer){
+
+        const composer = new EffectComposer( renderer );
+        postProcessing.composer = composer;
+
+        const renderPass = new RenderPass( scene, camera );
+    
+        const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+        bloomPass.threshold = bloomParams.bloomThreshold;
+        bloomPass.strength = bloomParams.bloomStrength;
+        bloomPass.radius = bloomParams.bloomRadius;
+        postProcessing.bloomPass = bloomPass;
+
+        const bokehPass = new BokehPass(scene, camera, {
+            focus: bokehParams.focus,
+            aperture: bokehParams.aperture,
+            maxblur: bokehParams.maxblur,
+            width: bokehParams.width,
+            height: bokehParams.height
+        });
+
+        bokehPass.renderToScreen = true;
+        postProcessing.bokehPass = bokehPass;
+
+        composer.addPass( renderPass );
+        //composer.addPass( bokehPass );
+        composer.addPass( bloomPass );
+
+    }
+
+    function placeTorchLight(father){
+
+        if (debugMode){
+            console.log("Placing torch light as child of: "+father.name);
+        }
+
+        const sphere = new THREE.SphereGeometry( 3, 4, 2 );
+        const light = new THREE.PointLight( 0xf4ccbd, 1, 4 );
+        const mesh = new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0xf4ccbd } ) );
+        light.add(mesh);
+
+        animateTorchLight(light);
+        
+        father.add( light );
+        
+        light.position.z+=2;
+
+        torchLights.push({light:light,mesh:mesh});
+    }
+
+    function randomNumber(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+    
+    document.addEventListener('click', musicPlay);
+    function musicPlay() {
+        document.getElementById('audioPlayer').play();
+        document.getElementById('audioPlayer').volume = 0.05;
+
+        document.getElementById('audioSeagullPlayer').play();
+        document.getElementById('audioSeagullPlayer').volume = 0.05;
+
+        document.removeEventListener('click', musicPlay);
+    }
+
+    window.addEventListener( 'resize', onWindowResize );
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+    }
+
+</script> 
+<audio id="audioPlayer" autoplay loop>
+    <source src="/audio/sea.ogg" type="audio/ogg">
+    <embed src="/audio/sea.mp3" autostart="true" loop="true" hidden="true"> 
+</audio>
+
+<audio id="audioSeagullPlayer" autoplay loop>
+    <source src="/audio/seagull.ogg" type="audio/ogg">
+    <embed src="/audio/seagull.mp3" autostart="true" loop="true" hidden="true"> 
+</audio>
+</body>
+</html>
