@@ -223,6 +223,9 @@
     spotLight.target = pMesh; //target has to be added before this command
     scene.add(spotLight);
 
+    //Boat
+    var boatGroup;
+
     //Support
     if (gridMode){ 
        placeGrid();
@@ -240,6 +243,7 @@
 
     const animationsObjects = [];
     loadEnvironment()
+    loadBoat()
 
 //SUPPORT FUNCTIONS
 
@@ -298,7 +302,66 @@
             console.error( error );
 
         } );
- 
+    }
+
+    function loadBoat(){
+        const loader = new GLTFLoader();
+
+        loader.load( '3D/boat/boat.gltf', function ( gltf ) {
+            gltf.scene.scale.set(0.1, 0.1, 0.1);
+            gltf.scene.position.set(5,0,-0.1);
+            gltf.scene.traverse((o) => {
+                if (o.isMesh) {
+                    o.castShadow = true;
+                    o.receiveShadow = true;
+
+                    if (debugMode){
+                        console.log("Loading mesh: "+o.name);
+                    }
+                  
+                    if (o.name == "Torch"){
+                        placeTorchLight(o, false);
+                    }
+                    else if (o.name == "Body"){
+                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/boat/textures/Image-Image_n.png' , function ( texture ) {
+                            o.material.normalMap = texture
+                            o.material.normalScale = new THREE.Vector3( 1, 1 );
+
+                            if (debugMode){
+                                console.log("Applying normal map to: "+o.name);
+                            }
+                        });
+                    }
+                    else if (o.name == "Hull"){
+                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/boat/textures/Image_n.png' , function ( texture ) {
+                            o.material.normalMap = texture
+                            o.material.normalScale = new THREE.Vector3( 1, 1 );
+
+                            if (debugMode){
+                                console.log("Applying normal map to: "+o.name);
+                            }
+                        });
+                    }
+
+                    if (o.material.emissiveMap!=null) {
+                        if (debugMode){
+                            console.log("Fixing emissive for: "+o.name);
+                        }
+
+                        if (windowsLightMode == WindowsLightMode.on){
+                            o.material.emissiveIntensity = WINDOWS_EMISSIVE_VALUE; //increase windows lights
+                        }
+                        emissiveMeshes.push (o);
+                    }
+                }
+            }
+            )
+
+            
+            boatGroup = new THREE.Group();
+    		scene.add( boatGroup );
+            boatGroup.add( gltf.scene );
+        })
     }
 
     function animateTorchLight(light){
@@ -312,15 +375,15 @@
     }
 
     //render loop
+    var totalTime;
     function animate() {
         requestAnimationFrame( animate );
 
         deltaTime = clock.getDelta();
+        totalTime+=deltaTime;
 
         if (controls.autoRotate) controls.update();
         
-        postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
-
         animationsObjects.forEach(mesh => {
             if (mesh.userData.clock && mesh.userData.mixer) {
                 mesh.userData.mixer.update(mesh.userData.clock.getDelta());
@@ -335,6 +398,11 @@
         TWEEN.update();
 
         water.material.uniforms[ 'time' ].value += 0.1*deltaTime;
+
+        boatGroup.rotation.y += 0.01*deltaTime;
+        boatGroup.position.y = Math.cos(clock.getElapsedTime()) * -0.05;
+
+        postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
     }
 
     function placeWater(scene) {
@@ -583,7 +651,7 @@
         } );
         
         var windowsLightParams = {on: true};
-        sceneFolder.add(windowsLightParams,'on').name("Windows light").setValue(false).listen().onChange( function(value) {
+        sceneFolder.add(windowsLightParams,'on').name("Emissive light").setValue(false).listen().onChange( function(value) {
             for (var emi of emissiveMeshes){
                 emi.material.emissiveIntensity = !value ? 0 : WINDOWS_EMISSIVE_VALUE;
             }
@@ -825,13 +893,15 @@
 
     }
 
-    function placeTorchLight(father){
+    function placeTorchLight(father, showMesh = true){
 
         if (debugMode){
             console.log("Placing torch light as child of: "+father.name);
         }
 
         const sphere = new THREE.SphereGeometry( 3, 4, 2 );
+        sphere.visible = showMesh;
+
         const light = new THREE.PointLight( 0xf4ccbd, 2, 4 );
         light.visible = false;
 
