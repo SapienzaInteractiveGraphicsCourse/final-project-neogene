@@ -378,7 +378,6 @@
              .start();
     }
 
-
     function placeSky(scene) {
         const sky = new Sky();
         sky.scale.setScalar(10000);
@@ -643,7 +642,7 @@
 
         //animation
         var torchLightAnimatedParams = {animated: false};
-        torchesFolder.add(torchLightAnimatedParams, 'animated').name("Animated").onChange( function(value) {
+        torchesFolder.add(torchLightAnimatedParams, 'animated').name("Glow animation").onChange( function(value) {
   
             for (tween of torchLightsTweens) {
                 if (tween.isPlaying) {
@@ -835,7 +834,37 @@
         const sphere = new THREE.SphereGeometry( 3, 4, 2 );
         const light = new THREE.PointLight( 0xf4ccbd, 2, 4 );
         light.visible = false;
-        const mesh = new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0xf4ccbd } ) );
+
+        var material = new THREE.ShaderMaterial({
+        uniforms: {
+            color1: {value: new THREE.Color("red")},
+            color2: {value: new THREE.Color("orange") },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+
+            void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 color1;
+            uniform vec3 color2;
+        
+            varying vec2 vUv;
+            
+            void main() {
+            
+            gl_FragColor = vec4(mix(color1, color2, vUv.y), 1.0);
+            }
+        `,
+        wireframe: false
+        });
+        //new THREE.MeshBasicMaterial( { color: 0xf4ccbd } )
+        const mesh = new THREE.Mesh( sphere, material);
+
+
         light.add(mesh);
 
         animateTorchLight(light);
