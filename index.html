@@ -244,7 +244,6 @@
     animateWater(water)
     
     loadEnvironment()
-    loadBoat()
 
 //SUPPORT FUNCTIONS
 
@@ -254,6 +253,7 @@
         loader.load( '3D/seaport/scene.gltf', function ( gltf ) {
             gltf.scene.scale.set(0.01, 0.01, 0.01);
             gltf.scene.traverse((o) => {
+                
                 if (o.isMesh) {
                     o.castShadow = true;
                     o.receiveShadow = true;
@@ -263,6 +263,11 @@
                     }
                     if (o.name == "Sky_Sky_0"){
                         skyEmbedded = o;
+                        const text = skyTime == SkyTime.day ? "material_4_baseColor" : "material_4_baseColor_night";
+                        const textureName = '3D/seaport/textures/'+text+'.jpg';
+
+                        skyEmbedded.material.map = new THREE.TextureLoader().load( textureName );
+                        skyEmbedded.material.needsUpdate = true;
                         skyEmbedded.visible = skyMode == SkyMode.embedded;
                     }
                     else if (o.name == "Environment"){
@@ -295,18 +300,7 @@
             });
             scene.add( gltf.scene );
 
-              //GUI
-            if (gui){
-                placeGUI(scene, renderer, camera, controls, false);
-            }
-
-            //Post processing
-            if (postProcessingMode){
-                setupPostProcessing(renderer);
-            }
-
-            //we can now start the whole engine
-            animate();
+            loadBoat()
 
         }, undefined, function ( error ) {
 
@@ -377,6 +371,58 @@
             boatGroup.add( gltf.scene );
             water.add( boatGroup );
             
+            loadPhoenix()
+        })
+    }
+
+    function endLoadingMeshes(){
+        //GUI
+        if (gui){
+                placeGUI(scene, renderer, camera, controls, false);
+            }
+
+        //Post processing
+        if (postProcessingMode){
+            setupPostProcessing(renderer);
+        }
+
+        //we can now start the whole engine
+        animate();
+    }
+
+    //BOAT
+    function loadPhoenix(){
+        const loader = new GLTFLoader();
+
+        loader.load( '3D/phoenix/phoenix.gltf', function ( gltf ) {
+            gltf.scene.scale.set(0.003, 0.003, 0.003);
+            gltf.scene.position.set(0,1,5);
+            gltf.scene.rotation.set(0,-Math.PI/2,0);
+            gltf.scene.traverse((o) => {
+                if (o.isMesh) {
+                    o.castShadow = true;
+                    o.receiveShadow = true;
+
+                    if (debugMode){
+                        console.log("Loading mesh: "+o.name);
+                    }
+
+                    if (o.material.emissiveMap!=null) {
+                        if (debugMode){
+                            console.log("Fixing emissive for: "+o.name);
+                        }
+
+                        if (windowsLightMode == WindowsLightMode.on){
+                            o.material.emissiveIntensity = WINDOWS_EMISSIVE_VALUE; //increase windows lights
+                        }
+                        emissiveMeshes.push (o);
+                    }
+                }
+            }
+            )
+            scene.add( gltf.scene );
+            
+            endLoadingMeshes();
         })
     }
 
@@ -542,10 +588,10 @@
         scene.add(plane);
     }
 
-    function placeFog(scene, mode, near = 5, far = 41, color=0x000000, expDensity = 0.12){
+    function placeFog(scene, mode, near = 7, far = 24, color=0x000000, expDensity = 0.12){
         if (mode == FogMode.linear) {
-            const near = 5;
-            const far = 41;
+            const near = 7;
+            const far = 24;
             scene.fog = new THREE.Fog(color, near, far);
         }
         else if (mode == FogMode.exp){
