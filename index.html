@@ -111,7 +111,7 @@
     //Settings
     var debugMode = DebugMode.on
     var nightMode = NightMode.on
-    var gridMode = GridMode.on
+    var gridMode = GridMode.off
     var fogMode = FogMode.linear
     var antialias = AntialiasMode.on
     var shadowsMode = ShadowMode.on
@@ -136,6 +136,7 @@
     var torchLights = []
     var torchLightsTweens = []
 
+    //Self emitting light meshes
     var emissiveMeshes = []
 
     //Post processing
@@ -154,9 +155,12 @@
         height : window.innerHeight
     }
 
+    var composer;
     const postProcessing = {};
 
     const WINDOWS_EMISSIVE_VALUE = 100;
+
+    const animationsObjects = [];
 
     //Quaternion
 //   let quaternion = new THREE.Quaternion().setFromAxisAngle( new THREE.Vector3(0, 0, 1).normalize(), 0.5 );
@@ -228,20 +232,16 @@
 
     //Support
     if (gridMode){ 
-       placeGrid();
+       placeGrid(gridMode);
     }
+
+
+    //water
+    const sky = placeSky(scene);
+    const sun = placeSun(sky,scene);
+    water = placeWater(scene);
+    animateWater(water)
     
-     //GUI
-     if (gui){
-        placeGUI(scene, renderer, camera, controls, false);
-    }
-
-    //Post processing
-    if (postProcessingMode){
-        setupPostProcessing(renderer);
-    }
-
-    const animationsObjects = [];
     loadEnvironment()
     loadBoat()
 
@@ -294,6 +294,16 @@
             });
             scene.add( gltf.scene );
 
+              //GUI
+            if (gui){
+                placeGUI(scene, renderer, camera, controls, false);
+            }
+
+            //Post processing
+            if (postProcessingMode){
+                setupPostProcessing(renderer);
+            }
+
             //we can now start the whole engine
             animate();
 
@@ -304,6 +314,7 @@
         } );
     }
 
+//BOAT
     function loadBoat(){
         const loader = new GLTFLoader();
 
@@ -320,7 +331,8 @@
                     }
                   
                     if (o.name == "Torch"){
-                        placeTorchLight(o, false);
+                        placeTorchLight(o,true, false, 0, false, false); //parent, visible, animate, deltaZ, addmesh, addtotorches
+                        oscillateBoatTorch(o);
                     }
                     else if (o.name == "Body"){
                         const groundNormalTexture = new THREE.TextureLoader().load( '3D/boat/textures/Image-Image_n.png' , function ( texture ) {
@@ -356,33 +368,53 @@
                 }
             }
             )
-
             
             boatGroup = new THREE.Group();
-    		scene.add( boatGroup );
+            boatGroup.position.z = 0;
+            boatGroup.rotation.x = Math.PI / 2;;
             boatGroup.add( gltf.scene );
+            water.add( boatGroup );
+            
         })
     }
 
-    function animateTorchLight(light){
-        new TWEEN.Tween(light)
+    function animateTorchLight(light, autoStart = false){
+        if (debugMode){
+            console.log("Animating torch light: "+light.parent);
+        }
+        const tween = new TWEEN.Tween(light)
             .to({intensity: 0}, 3000)
             .delay(( Math.random()) * 3000)
             .yoyo(true)
             .repeat(Infinity)
-            .easing(TWEEN.Easing.Cubic.InOut)
-            .start();
+            .easing(TWEEN.Easing.Linear.None);
+            
+            if (autoStart) tween.start();
+    }
+
+    function oscillateBoatTorch(mesh){
+        if (debugMode){
+            console.log("Oscillating mesh: "+mesh.name);
+        }
+        
+        const tween =  new TWEEN.Tween(mesh.rotation)
+            .to({x:mesh.rotation.x + Math.PI / 4},2000)
+            .yoyo(true)
+            .repeat(Infinity)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .onUpdate(function () {
+              
+            })
+            .start()
     }
 
     //render loop
     var totalTime;
     function animate() {
-        requestAnimationFrame( animate );
-
         deltaTime = clock.getDelta();
         totalTime+=deltaTime;
 
-        if (controls.autoRotate) controls.update();
+        controls.update();
         
         animationsObjects.forEach(mesh => {
             if (mesh.userData.clock && mesh.userData.mixer) {
@@ -395,14 +427,15 @@
             //sky.position.applyQuaternion(quaternion);
         }
         
-        TWEEN.update();
-
         water.material.uniforms[ 'time' ].value += 0.1*deltaTime;
 
-        boatGroup.rotation.y += 0.01*deltaTime;
-        boatGroup.position.y = Math.cos(clock.getElapsedTime()) * -0.05;
+        if (boatGroup!=null) {
+            boatGroup.rotation.y += 0.02*deltaTime;
+        }
 
+        requestAnimationFrame( animate );
         postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
+        TWEEN.update();
     }
 
     function placeWater(scene) {
@@ -412,7 +445,7 @@
           {
             textureWidth: 512,
             textureHeight: 512,
-            waterNormals: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/waternormals.jpg', function ( texture ) {
+            waterNormals: new THREE.TextureLoader().load('textures/waternormals.jpg', function ( texture ) {
               texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             }),
             alpha: 1.0,
@@ -440,15 +473,15 @@
              .yoyo(true)
              .repeat(Infinity)
              .easing(TWEEN.Easing.Quadratic.InOut)
-             .onUpdate(function () {
+             /*.onUpdate(function () {
                
-            })
+            })*/
              .start();
     }
 
     function placeSky(scene) {
         const sky = new Sky();
-        sky.scale.setScalar(10000);
+        sky.scale.setScalar(10);
         scene.add(sky);
         return sky;
     }
@@ -458,6 +491,7 @@
         const sun = new THREE.Vector3();
         const theta = Math.PI * (0.49 - 0.5);
         const phi = 2 * Math.PI * (0.205 - 0.5);
+       
         sun.x = Math.cos(phi);
         sun.y = Math.sin(phi) * Math.sin(theta);
         sun.z = Math.sin(phi) * Math.cos(theta);
@@ -519,13 +553,15 @@
             scene.fog = null;
         }
     }
-    function placeGrid(){
-        grid = new THREE.GridHelper(2000, 2000);
-        grid.position.y = 0;
-        grid.material.opacity = 0.25;
-        grid.material.transparent = true;
-        grid.visible = false;
-        scene.add(grid);
+    function placeGrid(visible){
+        if (grid==null){
+            grid = new THREE.GridHelper(2000, 2000);
+            grid.position.y = 0;
+            grid.material.opacity = 0.25;
+            grid.material.transparent = true;
+            scene.add(grid);
+        }
+        grid.visible = visible;
     }
 
     function placeSkyBox(scene, day=SkyTime.day){
@@ -634,8 +670,8 @@
             }
 
             //Turn on windows lights
-            for (var emi of emissiveMeshes){
-                if (skyTime != SkyTime.day) {
+            if (skyTime == SkyTime.night) {
+                for (var emi of emissiveMeshes){
                     emi.material.emissiveIntensity =  WINDOWS_EMISSIVE_VALUE;
                 }
             }
@@ -658,7 +694,10 @@
         })
 
         //Grid
-        sceneFolder.add(grid, 'visible').name("Grid")
+        var gridParams = {on: gridMode};
+        sceneFolder.add(gridParams, 'on').name("Grid").setValue(gridMode).listen().onChange( function(value) {
+            placeGrid(gridMode)
+        })
         
         //Fog
         var fogButton = { fog:function(){ 
@@ -732,8 +771,8 @@
         } );
         
 
-        var torchLightIntensityParams = {intensity: 3};
-        torchesFolder.add(torchLightIntensityParams, 'intensity', 0, 100).name("Torches intensity").step(0.01).onChange( function(value) {
+        var torchLightIntensityParams = {intensity: 4};
+        torchesFolder.add(torchLightIntensityParams, 'intensity', 0, 100).setValue(4).name("Torches intensity").step(0.01).onChange( function(value) {
             for (const torch of torchLights){
                 torch.light.intensity = value;
             }
@@ -759,11 +798,6 @@
         lightsFolder.add(spotLight.rotation, 'x', -180, 180).name("RotX").step(0.5).onChange((value) => {spotLight.rotation.x = THREE.MathUtils.degToRad(value);});
         lightsFolder.add(spotLight.rotation, 'y', -180, 180).name("RotY").step(0.5).onChange((value) => {spotLight.rotation.y = THREE.MathUtils.degToRad(value);});
         lightsFolder.add(spotLight.rotation, 'z', -180, 180).name("RotZ").step(0.5).onChange((value) => {spotLight.rotation.z = THREE.MathUtils.degToRad(value);});
-        lightsFolder.add(spotLight.shadow.mapSize, 'width', 0, 2048)
-        lightsFolder.add(spotLight.shadow.mapSize, 'height', 0, 2048)
-        lightsFolder.add(spotLight.shadow.camera, 'near', 0, 2048)
-        lightsFolder.add(spotLight.shadow.camera, 'far', 0, 2048)
-        lightsFolder.add(spotLight.shadow.camera, 'fov', 0, 180)
 
         if (opened) lightsFolder.open()
 
@@ -788,16 +822,11 @@
         skyFolder.add(skyButton,'sky').name("Mode (Off, Embedded, Custom)");
         if (opened) skyFolder.open()
 
-        //water
-        const sky = placeSky(scene);
-        const sun = placeSun(sky,scene);
-        water = placeWater(scene);
-        animateWater(water)
 
         //post processing
         const fxFolder = gui.addFolder("Post processing")
-        var postProcessingButton = { post:function(){ 
-            
+        var possProcessingParams = {post: true};
+        fxFolder.add(possProcessingParams,'post').name("Post processing").onChange( function(value) {
             if (postProcessing.composer==null){
                 setupPostProcessing(renderer)
             }
@@ -805,9 +834,18 @@
             postProcessingMode =! postProcessingMode;
 
             console.log("clicked pp: "+postProcessingMode); 
-        }};
-        fxFolder.add(postProcessingButton,'post').name("Post processing");
+        } );
        
+        var possProcessingBloomParams = {on: true};
+        fxFolder.add(possProcessingBloomParams,'on').name("Bloom").setValue(true).onChange( function(value) {
+            enablePP(postProcessing.bloomPass,value)
+        } );
+
+        var possProcessingDOFParams = {on: false};
+        fxFolder.add(possProcessingDOFParams,'on').name("DOF").setValue(false).onChange( function(value) {
+            enablePP(postProcessing.bokehPass,value)
+        } );
+      
         //Bloom
         fxFolder.add( bloomParams, 'exposure', 0.1, 2 ).name("Bloom exp").onChange( function ( value ) {
             renderer.toneMappingExposure = Math.pow( value, 4.0 );
@@ -865,7 +903,7 @@
 
     function setupPostProcessing(renderer){
 
-        const composer = new EffectComposer( renderer );
+        composer = new EffectComposer( renderer );
         postProcessing.composer = composer;
 
         const renderPass = new RenderPass( scene, camera );
@@ -885,15 +923,20 @@
         });
 
         bokehPass.renderToScreen = true;
+        bokehPass.enabled = false
         postProcessing.bokehPass = bokehPass;
 
         composer.addPass( renderPass );
-        //composer.addPass( bokehPass );
         composer.addPass( bloomPass );
+        composer.addPass( bokehPass );
 
     }
 
-    function placeTorchLight(father, showMesh = true){
+    function enablePP(pass, status){
+        pass.enabled = status
+    }
+
+    function placeTorchLight(father, visible = false, animate = false, deltaZ = 2, showMesh = true, addToTorchLights = true){
 
         if (debugMode){
             console.log("Placing torch light as child of: "+father.name);
@@ -903,7 +946,7 @@
         sphere.visible = showMesh;
 
         const light = new THREE.PointLight( 0xf4ccbd, 2, 4 );
-        light.visible = false;
+        light.visible = visible;
 
         var material = new THREE.ShaderMaterial({
         uniforms: {
@@ -934,16 +977,15 @@
         //new THREE.MeshBasicMaterial( { color: 0xf4ccbd } )
         const mesh = new THREE.Mesh( sphere, material);
 
-
         light.add(mesh);
 
-        animateTorchLight(light);
+        animateTorchLight(light, animate);
         
         father.add( light );
         
-        light.position.z+=2;
+        light.position.z+=deltaZ;
 
-        torchLights.push({light:light,mesh:mesh});
+        if (addToTorchLights) torchLights.push({light:light,mesh:mesh});
 
         father.callback = function() { 
             light.visible = !light.visible

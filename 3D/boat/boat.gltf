@@ -61,7 +61,6 @@
     ],
     "materials" : [
         {
-            "alphaMode" : "BLEND",
             "doubleSided" : true,
             "emissiveFactor" : [
                 1,
@@ -156,13 +155,13 @@
         },
         {
             "mimeType" : "image/png",
-            "name" : "Image-Image",
-            "uri" : "textures/Image-Image.png"
+            "name" : "Image",
+            "uri" : "textures/Image.png"
         },
         {
             "mimeType" : "image/png",
             "name" : "Image",
-            "uri" : "textures/Image.png"
+            "uri" : "textures/Image-1.png"
         }
     ],
     "accessors" : [
@@ -241,12 +240,12 @@
             "max" : [
                 32.366424560546875,
                 0,
-                29.0242919921875
+                69.93953704833984
             ],
             "min" : [
                 -31.994295120239258,
-                -142.125244140625,
-                -27.1829833984375
+                -137.52330017089844,
+                -2.159679412841797
             ],
             "type" : "VEC3"
         },
