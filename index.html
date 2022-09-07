@@ -104,12 +104,17 @@
         on  : true
     }
 
+    const SceneMode = {
+        off : false,
+        on  : true
+    }
+
     //Needed to make raw animation code time indipentend
     var clock = new THREE.Clock();
     var deltaTime;
 
     //Settings
-    var debugMode = DebugMode.on
+    var debugMode = DebugMode.off
     var nightMode = NightMode.on
     var gridMode = GridMode.off
     var fogMode = FogMode.linear
@@ -122,17 +127,22 @@
     var postProcessingMode = PostProcessingMode.on;
     var skyTime = SkyTime.day; 
     var windowsLightMode = WindowsLightMode.off;
-
-    let skybox;
-    let skyEmbedded;
-    let sea;
-    let grid;
+    var sceneMode = SceneMode.on
+    var skybox;
+    var skyEmbedded;
+    var sea;
+    var grid;
     
-    let water;
+    var sky;
+    var sun;
+    var water;
+
+    var phoenix
+    var phoenixGroup;
     
     //Ligths
-    let ambientLight;
-    let spotLight;
+    var ambientLight;
+    var spotLight;
     var torchLights = []
     var torchLightsTweens = []
 
@@ -159,6 +169,7 @@
     const postProcessing = {};
 
     const WINDOWS_EMISSIVE_VALUE = 100;
+    const PHOENIX_EMISSIVE_VALUE = 10;
 
     const animationsObjects = [];
 
@@ -209,25 +220,6 @@
         placeSkyBox(scene,skyTime);
     }
 
-    //Player
-    const pGeo = new THREE.BoxGeometry( 1, 1, 1 );
-    pGeo.translate( 0, 0, 0 );
-    const pMaterial = new THREE.MeshLambertMaterial( { color: 0xeeeeee } );
-    const pMesh = new THREE.Mesh( pGeo, pMaterial );
-    pMesh.castShadow = true;
-    scene.add( pMesh );
-    
-     //Local light
-    spotLight = new THREE.SpotLight(0xd4d49c, 3);
-    spotLight.position.set(0, 5, 1.4);
-    spotLight.castShadow = lightsShadow;
-    spotLight.penumbra = 0.05;
-    spotLight.intensity = 3;
-    spotLight.distance = 10;
-    spotLight.angle = 0.7;
-    spotLight.target = pMesh; //target has to be added before this command
-    scene.add(spotLight);
-
     //Boat
     var boatGroup;
 
@@ -236,12 +228,22 @@
        placeGrid(gridMode);
     }
 
-
     //water
-    const sky = placeSky(scene);
-    const sun = placeSun(sky,scene);
+    sky = placeSky(scene);
+    sun = placeSun(sky,scene);
     water = placeWater(scene);
     animateWater(water)
+
+    //Local light
+    spotLight = new THREE.SpotLight(0xd4d49c, 3);
+    spotLight.position.set(0, 5, 1.4);
+    spotLight.castShadow = lightsShadow;
+    spotLight.penumbra = 0.05;
+    spotLight.intensity = 3;
+    spotLight.distance = 10;
+    spotLight.angle = 0.7;
+    spotLight.target = water; //target has to be added before this command
+    scene.add(spotLight);
     
     loadEnvironment()
 
@@ -298,7 +300,10 @@
                     //o.material.normalScale.y *= -1;
                 }
             });
-            scene.add( gltf.scene );
+
+            if (sceneMode == SceneMode.on){
+                scene.add( gltf.scene );
+            }
 
             loadBoat()
 
@@ -395,16 +400,19 @@
         const loader = new GLTFLoader();
 
         loader.load( '3D/phoenix/phoenix.gltf', function ( gltf ) {
-            gltf.scene.scale.set(0.003, 0.003, 0.003);
             gltf.scene.position.set(0,1,5);
-            gltf.scene.rotation.set(0,-Math.PI/2,0);
+            //gltf.scene.rotation.set(0,-Math.PI/2,0);
             gltf.scene.traverse((o) => {
                 if (o.isMesh) {
                     o.castShadow = true;
                     o.receiveShadow = true;
 
                     if (debugMode){
-                        console.log("Loading mesh: "+o.name);
+                        console.log("Loading mesh: "+o.name + " data (axis: "+o.userData.axis+" prop: "+o.userData.prop+")");
+                    }
+
+                    if (o.userData.axis!=null){
+                        animatePhoenixMesh(o,o.userData.axis,o.userData.prop, o.userData.delay, o.userData.easing)
                     }
 
                     if (o.material.emissiveMap!=null) {
@@ -413,18 +421,103 @@
                         }
 
                         if (windowsLightMode == WindowsLightMode.on){
-                            o.material.emissiveIntensity = WINDOWS_EMISSIVE_VALUE; //increase windows lights
+                            o.material.emissiveIntensity = PHOENIX_EMISSIVE_VALUE; //increase windows lights
                         }
                         emissiveMeshes.push (o);
                     }
                 }
             }
             )
-            scene.add( gltf.scene );
+            
+            phoenix = gltf.scene.getObjectByName("Body");
+
+            phoenixGroup = new THREE.Group();
+            phoenixGroup.add( gltf.scene );
+            
+            scene.add( phoenixGroup );
+
+            loadPhoenixPath();
             
             endLoadingMeshes();
         })
     }
+
+    var tangent = new THREE.Vector3();
+    var axis = new THREE.Vector3();
+    var up = new THREE.Vector3( 1, 0, 0 )
+    var counter = 0;
+    var spline;
+
+    function loadPhoenixPath(){
+
+        if (debugMode){
+            console.log("Loading phoenix path");
+        }
+
+        spline = new THREE.CatmullRomCurve3( [
+        new THREE.Vector3( -1 , 1, -1),
+        new THREE.Vector3( -1.2 , 1, 1.1),
+        new THREE.Vector3( 0.8 , 1, 1),
+        new THREE.Vector3( 1 , 1, -1.1),
+    ] , true );
+
+        if (debugMode){
+            const points = spline.getPoints( 30 );
+            const geometry = new THREE.BufferGeometry().setFromPoints( points );
+
+            const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+
+            // Create the final object to add to the scene
+            const splineObject = new THREE.Line( geometry, material );
+        // splineObject.rotation.x = Math.PI*0.5
+
+            scene.add(splineObject)
+        }
+    }
+
+    
+    function animatePhoenixMesh(mesh, axis, delta, delay, easing){
+
+        if (debugMode){
+            console.log("Animating phoenix: "+mesh.name);
+        }
+
+        const tween = new TWEEN.Tween(mesh.rotation)
+            .to({[axis]:mesh.rotation[axis] + 0.2*delta},1000)
+            .yoyo(true)
+            .delay(delay != null ? delay*1000 : 0)
+            .repeat(Infinity)
+            .easing(easing != null ? (easing == 1 ? TWEEN.Easing.Linear.None : TWEEN.Easing.Quadratic.InOut) : TWEEN.Easing.Linear.None)
+            /*.onUpdate(function () {
+              
+            })*/
+            .start()
+    
+    }
+
+    function movePhoenixAroundPath(delta) {
+        if (counter <= 1) {
+            const p = spline.getPointAt(counter);
+
+            phoenixGroup.position.set(p.x,p.y,p.z);
+            
+            tangent = spline.getTangentAt(counter).normalize();
+
+            axis.crossVectors( up, tangent ).normalize();
+
+            var radians = Math.acos( up.dot( tangent ) );
+
+            phoenixGroup.quaternion.setFromAxisAngle( axis, radians );
+
+            /*if (debugMode){
+                console.log("Animating phoenix: "+phoenixGroup.position.x+ ","+phoenixGroup.position.y+","+phoenixGroup.position.z+" rad:"+radians);
+           }*/
+            counter += delta
+        } else {
+            counter = 0;
+        }
+    }
+
 
     function animateTorchLight(light, autoStart = false){
         if (debugMode){
@@ -446,14 +539,14 @@
             console.log("Oscillating mesh: "+mesh.name);
         }
         
-        const tween =  new TWEEN.Tween(mesh.rotation)
+        const tween = new TWEEN.Tween(mesh.rotation)
             .to({x:mesh.rotation.x + Math.PI / 5},4000)
             .yoyo(true)
             .repeat(Infinity)
             .easing(TWEEN.Easing.Quadratic.InOut)
-            .onUpdate(function () {
+            /*.onUpdate(function () {
               
-            })
+            })*/
             .start()
     }
 
@@ -485,6 +578,8 @@
         requestAnimationFrame( animate );
         postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
         TWEEN.update();
+
+        movePhoenixAroundPath(deltaTime*0.05);
     }
 
     function placeWater(scene) {
