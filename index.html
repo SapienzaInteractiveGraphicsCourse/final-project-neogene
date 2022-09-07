@@ -58,15 +58,9 @@
         on : true
     }
 
-    const GridMode = {
-        off : false,
-        on : true
-    }
-
     const SkyMode = {
         off : 0,
         embedded : 1,
-        custom : 2
     }
 
     const SkyTime = {
@@ -99,7 +93,7 @@
         on  : true
     }
 
-    const WindowsLightMode = {
+    const BoostEmissionLightMode = {
         off : false,
         on  : true
     }
@@ -109,6 +103,16 @@
         on  : true
     }
 
+    const WaterMode = {
+        off : false,
+        on  : true
+    }
+
+    const ParticleMode = {
+        off : false,
+        on: true
+    }
+
     //Needed to make raw animation code time indipentend
     var clock = new THREE.Clock();
     var deltaTime;
@@ -116,7 +120,6 @@
     //Settings
     var debugMode = DebugMode.off
     var nightMode = NightMode.on
-    var gridMode = GridMode.off
     var fogMode = FogMode.linear
     var antialias = AntialiasMode.on
     var shadowsMode = ShadowMode.on
@@ -126,12 +129,14 @@
     var gui = GUIMode.on
     var postProcessingMode = PostProcessingMode.on;
     var skyTime = SkyTime.day; 
-    var windowsLightMode = WindowsLightMode.off;
+    var boostEmissionLightMode = BoostEmissionLightMode.off;
     var sceneMode = SceneMode.on
+    var waterMode = WaterMode.on;
+    var particleMode = ParticleMode.off;
+
     var skybox;
     var skyEmbedded;
     var sea;
-    var grid;
     
     var sky;
     var sun;
@@ -143,11 +148,15 @@
     //Ligths
     var ambientLight;
     var spotLight;
-    var torchLights = []
-    var torchLightsTweens = []
+    const torchLights = []
+    const torchLightsTweens = []
 
     //Self emitting light meshes
-    var emissiveMeshes = []
+    const emissiveMeshes = []
+
+    var particlesEffects = []
+    var particleMaterials = []
+    var particleParameters = []
 
     //Post processing
     const bloomParams = {
@@ -169,12 +178,9 @@
     const postProcessing = {};
 
     const WINDOWS_EMISSIVE_VALUE = 100;
-    const PHOENIX_EMISSIVE_VALUE = 10;
+    const PHOENIX_EMISSIVE_VALUE = 0.1;
 
     const animationsObjects = [];
-
-    //Quaternion
-//   let quaternion = new THREE.Quaternion().setFromAxisAngle( new THREE.Vector3(0, 0, 1).normalize(), 0.5 );
 
     //Renderer
     const renderer = new THREE.WebGLRenderer({antialias: antialias}); 
@@ -216,23 +222,16 @@
     ambientLight.intensity = 0.7;
     scene.add(ambientLight);
 
-    if (skyMode == SkyMode.custom){
-        placeSkyBox(scene,skyTime);
-    }
-
     //Boat
     var boatGroup;
 
-    //Support
-    if (gridMode){ 
-       placeGrid(gridMode);
+  //water
+    if (waterMode == WaterMode.on){
+        sky = placeSky(scene);
+        sun = placeSun(sky,scene);
+        water = placeWater(scene, sun);
+        animateWater(water)
     }
-
-    //water
-    sky = placeSky(scene);
-    sun = placeSun(sky,scene);
-    water = placeWater(scene);
-    animateWater(water)
 
     //Local light
     spotLight = new THREE.SpotLight(0xd4d49c, 3);
@@ -268,7 +267,9 @@
                         const text = skyTime == SkyTime.day ? "material_4_baseColor" : "material_4_baseColor_night";
                         const textureName = '3D/seaport/textures/'+text+'.jpg';
 
-                        skyEmbedded.material.map = new THREE.TextureLoader().load( textureName );
+                        skyEmbedded.material.map = new THREE.TextureLoader().load( textureName , function  (texture) {
+                            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                        });
                         skyEmbedded.material.needsUpdate = true;
                         skyEmbedded.visible = skyMode == SkyMode.embedded;
                     }
@@ -290,7 +291,7 @@
                             console.log("Fixing emissive for: "+o.name);
                         }
 
-                        if (windowsLightMode == WindowsLightMode.on){
+                        if (boostEmissionLightMode == BoostEmissionLightMode.on){
                             o.material.emissiveIntensity = WINDOWS_EMISSIVE_VALUE; //increase windows lights
                         }
 
@@ -360,7 +361,7 @@
                             console.log("Fixing emissive for: "+o.name);
                         }
 
-                        if (windowsLightMode == WindowsLightMode.on){
+                        if (boostEmissionLightMode == BoostEmissionLightMode.on){
                             o.material.emissiveIntensity = WINDOWS_EMISSIVE_VALUE; //increase windows lights
                         }
                         emissiveMeshes.push (o);
@@ -374,21 +375,32 @@
             boatGroup.rotation.y = Math.PI*3/2;
             boatGroup.rotation.x = Math.PI / 2;
             boatGroup.add( gltf.scene );
-            water.add( boatGroup );
-            
+
+            if (water!=null) {
+                water.add( boatGroup );
+            }
+            else if (sea!=null) {
+                sea.add(boatGroup);
+            }
+
             loadPhoenix()
         })
     }
 
     function endLoadingMeshes(){
-        //GUI
-        if (gui){
-                placeGUI(scene, renderer, camera, controls, false);
-            }
 
+        if (particleMode){
+            placeFireFlies()
+        }
+        
         //Post processing
         if (postProcessingMode){
             setupPostProcessing(renderer);
+        }
+
+        //GUI
+        if (gui){
+            placeGUI(scene, renderer, camera, controls, false);
         }
 
         //we can now start the whole engine
@@ -417,11 +429,11 @@
 
                     if (o.material.emissiveMap!=null) {
                         if (debugMode){
-                            console.log("Fixing emissive for: "+o.name);
+                            console.log("Boosting emissive for: "+o.name);
                         }
 
-                        if (windowsLightMode == WindowsLightMode.on){
-                            o.material.emissiveIntensity = PHOENIX_EMISSIVE_VALUE; //increase windows lights
+                        if (boostEmissionLightMode == BoostEmissionLightMode.on){
+                            o.material.emissiveIntensity = PHOENIX_EMISSIVE_VALUE; //increase phoenix 
                         }
                         emissiveMeshes.push (o);
                     }
@@ -509,15 +521,11 @@
 
             phoenixGroup.quaternion.setFromAxisAngle( axis, radians );
 
-            /*if (debugMode){
-                console.log("Animating phoenix: "+phoenixGroup.position.x+ ","+phoenixGroup.position.y+","+phoenixGroup.position.z+" rad:"+radians);
-           }*/
             counter += delta
         } else {
             counter = 0;
         }
     }
-
 
     function animateTorchLight(light, mesh, autoStart = false){
         if (debugMode){
@@ -564,9 +572,10 @@
     }
 
     //render loop
-    var totalTime;
+    var totalTime = 0;
     function animate() {
         deltaTime = clock.getDelta();
+     
         totalTime+=deltaTime;
 
         controls.update();
@@ -578,24 +587,49 @@
         })
 
         if (skyEmbedded!=null && skyEmbedded.visible) {
-            skyEmbedded.rotation.z += 0.01*deltaTime; 
-            //sky.position.applyQuaternion(quaternion);
+
+            if(skyTime == SkyTime.day) {
+                skyEmbedded.material.map.offset.x -= 0.001*deltaTime; 
+            }
+            else {
+                skyEmbedded.material.map.offset.x -= 0.001*deltaTime; 
+                skyEmbedded.material.map.offset.y += 0.001*deltaTime; 
+            }
         }
         
-        water.material.uniforms[ 'time' ].value += 0.1*deltaTime;
+        if (water!=null) {
+            water.material.uniforms[ 'time' ].value += 0.1*deltaTime;
+        }
 
         if (boatGroup!=null) {
             boatGroup.rotation.y += 0.02*deltaTime;
+            boatGroup.position.z = Math.cos(totalTime)*0.05;
         }
 
         requestAnimationFrame( animate );
         postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
         TWEEN.update();
 
+        //Fireflies
+        const time = Date.now() * 0.00001;
+        for ( let i = 0; i < particlesEffects.length; i ++ ) {
+            particlesEffects[i].rotation.y = time * ( i < 4 ? i + 1 : - ( i + 1 ) );
+        }
+
+        for ( let i = 0; i < particleMaterials.length; i ++ ) {
+
+            const color = particleParameters[ i ][ 0 ];
+
+            const h = ( 360 * ( color[ 0 ] + time ) % 360 ) / 360;
+            particleMaterials[ i ].color.setHSL( h, color[ 1 ], color[ 2 ] );
+
+        }
+
+        //Phoeix animation
         movePhoenixAroundPath(deltaTime*0.05);
     }
 
-    function placeWater(scene) {
+    function placeWater(scene, sun) {
         const waterGeometry = new THREE.PlaneGeometry(20, 20);
         const water = new Water(
           waterGeometry,
@@ -606,7 +640,7 @@
               texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             }),
             alpha: 1.0,
-            sunDirection: new THREE.Vector3(),
+            sunDirection: sun.position,
             sunColor: 0xffffff,
             waterColor: 0x001e0f,
             distortionScale: 0.1,
@@ -658,44 +692,6 @@
         return sun;
     }
 
-    function placeGround(zAxisDeltaMult){
-        const groundGeo = new THREE.BoxGeometry( 5, 0.01, 15 );
-        groundGeo.translate( 0, 0, -zAxisDeltaMult*15 );
-        const groundTexture = new THREE.TextureLoader().load( 'textures/pavement.jpg' , function ( texture ) {
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-            texture.offset.set( 0, 0 );
-            texture.repeat.set( 1, 4 );
-        } );
-        const groundNormalTexture = new THREE.TextureLoader().load( 'textures/pavement_n.png' , function ( texture ) {
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        } );
-        const groundMaterial = new THREE.MeshLambertMaterial( { color: 0xbbbbbb, map:groundTexture, normalMap:groundNormalTexture, normalScale: new THREE.Vector3( 1, 4 ) } );
-        const groundMesh = new THREE.Mesh( groundGeo, groundMaterial );
-        groundMesh.receiveShadow = true
-        scene.add( groundMesh );
-    }
-
-    function placeGrass(scene){
-        let planeGeometry = new THREE.PlaneGeometry(2000, 2000);
-        planeGeometry.rotateX(-Math.PI / 2);
-        const planeTexture = new THREE.TextureLoader().load( 'Textures/grass.jpg' , function ( texture ) {
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-            texture.offset.set( 0, 0 );
-            texture.repeat.set( 1000, 1000 );
-
-        } );
-        const planeNormalTexture = new THREE.TextureLoader().load( 'Textures/grass_n.png' , function ( texture ) {
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        } );
-        const planeMaterial = new THREE.MeshLambertMaterial( { color: 0xbbbbbb, map:planeTexture, normalMap:planeNormalTexture, normalScale: new THREE.Vector3( 1000, 1000 ) } );
-
-        const  plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.position.y = 0;
-        plane.receiveShadow = true;
-        scene.add(plane);
-    }
-
     function placeFog(scene, mode, near = 7, far = 24, color=0x000000, expDensity = 0.12){
         if (mode == FogMode.linear) {
             const near = 7;
@@ -709,52 +705,6 @@
         else {
             scene.fog = null;
         }
-    }
-    function placeGrid(visible){
-        if (grid==null){
-            grid = new THREE.GridHelper(2000, 2000);
-            grid.position.y = 0;
-            grid.material.opacity = 0.25;
-            grid.material.transparent = true;
-            scene.add(grid);
-        }
-        grid.visible = visible;
-    }
-
-    function placeSkyBox(scene, day=SkyTime.day){
-        let skyboxImage = day ? "miramar" :"galaxy";
-        let folder = day ? "day" :"night";
-
-        const materialArray = createMaterialArray(folder,skyboxImage);
-
-        var skyboxGeo = new THREE.BoxGeometry(9, 9, 9);
-        skybox = new THREE.Mesh(skyboxGeo, materialArray);
-
-        scene.add(skybox);
-    }
-
-    function createPathStrings(folder,filename, ext) {
-        const basePath = "./Textures/Skybox/"+folder+"/";
-        const baseFilename = basePath + filename;
-        const fileType = "."+ext;
-        const sides = ["ft", "bk", "up", "dn", "rt", "lf"];
-        const pathStings = sides.map(side => {
-            return baseFilename + "_" + side + fileType;
-        });
-
-        return pathStings;
-    }
-
-    function createMaterialArray(folder, filename) {
-        const skyboxImagepaths = createPathStrings(folder,filename,"jpg");
-
-        if (debugMode) console.log(skyboxImagepaths)
-
-        const materialArray = skyboxImagepaths.map(image => {
-            let texture = new THREE.TextureLoader().load(image);
-            return new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide }); //flip normal
-        });
-        return materialArray;
     }
 
     function placeGUI(scene, renderer, camera, controls, opened = true){
@@ -791,15 +741,27 @@
                 const text = skyTime == SkyTime.day ? "material_4_baseColor" : "material_4_baseColor_night";
                 const textureName = '3D/seaport/textures/'+text+'.jpg';
 
-                skyEmbedded.material.map = new THREE.TextureLoader().load( textureName );
-                skyEmbedded.material.needsUpdate = true;
+                skyEmbedded.material.map = new THREE.TextureLoader().load( textureName , function  (texture) {
+                    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+
+                    if (skyTime == SkyTime.night){
+                        skyEmbedded.material.emissiveMap = texture;
+                        skyEmbedded.material.emissiveIntensity = 100
+                        skyEmbedded.material.emissive = new THREE.Color("white")
+                    }
+                    else {
+                        skyEmbedded.material.emissiveMap = null
+                        skyEmbedded.material.emissiveIntensity = 0
+                        skyEmbedded.material.emissive = new THREE.Color("black")
+                    }
+
+                    skyEmbedded.material.needsUpdate = true;
+                });
 
                 if (debugMode) console.log("loaded sky texture: "+textureName); 
 
             }
             
-            spotLight.visible = skyTime == SkyTime.day;
-
             if (skyTime == SkyTime.night){
                 ambientLight.visible = true
                 ambientLight.color.setHex(0x09489f);
@@ -816,16 +778,37 @@
 
                 torchLightEnabledParams.enabled = true
                 windowsLightParams.on = true
-            }
-            else {
-                ambientLight.color.setHex(0xffffff);
-            }
 
-            //Turn on windows lights
-            if (skyTime == SkyTime.night) {
+                //Turn on windows lights
                 for (var emi of emissiveMeshes){
                     emi.material.emissiveIntensity =  WINDOWS_EMISSIVE_VALUE;
                 }
+
+                spotLight.intensity = 40
+                spotLight.color.setHex(0x6888d9)
+
+                placeFireFlies()
+            }
+            else {
+                spotLight.intensity = 3
+
+                spotLight.color.setHex(0xffffff)
+                ambientLight.color.setHex(0xffffff);
+
+                 //turn on torchlights
+                 for (const torch of torchLights){
+                    torch.light.visible = false;
+                }
+
+                //animate torchlights
+                for (const tween of torchLightsTweens) {
+                    tween.pause();
+                }
+
+                torchLightEnabledParams.enabled = false
+                windowsLightParams.on = false
+
+                removeFireFlies()
             }
             
             fogMode = skyTime == SkyTime.night ? FogMode.exp : FogMode.linear;
@@ -845,12 +828,6 @@
             }
         })
 
-        //Grid
-        var gridParams = {on: gridMode};
-        sceneFolder.add(gridParams, 'on').name("Grid").setValue(gridMode).listen().onChange( function(value) {
-            placeGrid(gridMode)
-        })
-        
         //Fog
         var fogButton = { fog:function(){ 
             let currentMode = fogMode;
@@ -879,8 +856,8 @@
         if (opened)  sceneFolder.open()
 
         //Ambient light
-        const ambientLightFolder = gui.addFolder("Ambient")
-        ambientLightFolder.add(ambientLight,'visible').name("Enabled");
+        const ambientLightFolder = gui.addFolder("Ambient light")
+        ambientLightFolder.add(ambientLight,'visible').listen().name("Enabled");
         ambientLightFolder.add(ambientLight, 'intensity', 0, 100).name("Intensity").step(0.01)
         var ambientColorParams = {color: "#FFFFFF"};
         ambientLightFolder.addColor(ambientColorParams,'color').name("Color").onChange( function(color) {
@@ -946,10 +923,7 @@
         lightsFolder.add(spotLight.position, 'x', -100, 100).step(0.01)
         lightsFolder.add(spotLight.position, 'y', -100, 100).step(0.01)
         lightsFolder.add(spotLight.position, 'z', -100, 100).step(0.01)
-        lightsFolder.add(spotLight.rotation, 'x', -180, 180).name("RotX").step(0.5).onChange((value) => {spotLight.rotation.x = THREE.MathUtils.degToRad(value);});
-        lightsFolder.add(spotLight.rotation, 'y', -180, 180).name("RotY").step(0.5).onChange((value) => {spotLight.rotation.y = THREE.MathUtils.degToRad(value);});
-        lightsFolder.add(spotLight.rotation, 'z', -180, 180).name("RotZ").step(0.5).onChange((value) => {spotLight.rotation.z = THREE.MathUtils.degToRad(value);});
-
+       
         if (opened) lightsFolder.open()
 
          //sky
@@ -958,21 +932,43 @@
             
             const currentMode = skyMode;
 
-            skyMode = currentMode == SkyMode.off ? SkyMode.embedded : currentMode == SkyMode.embedded ? SkyMode.custom : SkyMode.off;
+            skyMode = currentMode == SkyMode.off ? SkyMode.embedded : currentMode == SkyMode.off;
 
             skyEmbedded.visible = skyMode == SkyMode.embedded;
-
-            if (skybox == null){
-                placeSkyBox(scene,skyTime);
-            }
             
-            skybox.visible = skyMode == SkyMode.custom;
-
-            if (debugMode) console.log("clicked sky: "+skyMode); 
         }};
-        skyFolder.add(skyButton,'sky').name("Mode (Off, Embedded, Custom)");
+        skyFolder.add(skyButton,'sky').name("Mode (Embedded / Off)");
         if (opened) skyFolder.open()
 
+        //Water
+        const waterFolder = gui.addFolder("Water")
+        var waterButton = { water:function(){ 
+            
+            const currentMode = waterMode;
+
+            waterMode = currentMode == WaterMode.off ? WaterMode.on : WaterMode.off;
+
+            water.visible = waterMode == WaterMode.on;
+            
+        }};
+        waterFolder.add(waterButton,'water').name("On / Off");
+        if (opened) waterFolder.open()
+
+         //particles
+        const particlesFolder = gui.addFolder("Particles")
+        var particlesParams = {on: particleMode};
+        particlesFolder.add(particlesParams,'on').name("Night Fireflies").setValue(particleMode).onChange( function(value) {
+
+            particleMode = value
+
+            if (value){
+                placeFireFlies()
+            }
+            else {
+                removeFireFlies()
+            }
+        })
+        if (opened) particlesFolder.open()
 
         //post processing
         const fxFolder = gui.addFolder("Post processing")
@@ -1052,6 +1048,64 @@
 
     }
 
+    function removeFireFlies(){
+        for (var p of particlesEffects){
+            scene.remove(p)
+        }
+
+        particleMaterials = []
+        particlesEffects = []
+
+        particleMode = ParticleMode.off
+    }
+
+    function placeFireFlies(){
+        
+        if (particlesEffects.length > 0){
+            return
+        }
+
+        particleMode = ParticleMode.on
+
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+
+        const textureLoader = new THREE.TextureLoader();
+
+        const sprite = textureLoader.load( '' );
+
+        for ( let i = 0; i < 200; i ++ ) {
+
+            const x = Math.random() * 15 - 7.5;
+            const y = Math.random() * 15 - 7.5;
+            const z = Math.random() * 15 - 7.5;
+
+            vertices.push( x, y, z );
+        }
+
+        geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+
+        particleParameters = [
+            [[ 1.0, 1.0, 1.0 ], sprite, 0.05 ],
+            [[ 0.86, 0.86, 0.67], sprite, 0.01]
+        ];
+
+        for ( let i = 0; i < particleParameters.length; i ++ ) {
+
+            const color = particleParameters[ i ][ 0 ];
+            const sprite = particleParameters[ i ][ 1 ];
+            const size = particleParameters[ i ][ 2 ];
+
+            particleMaterials[ i ] = new THREE.PointsMaterial( { size: size, blending: THREE.AdditiveBlending, depthTest: false, transparent: true } );
+            particleMaterials[ i ].color.setHSL( color[ 0 ], color[ 1 ], color[ 2 ] );
+
+            const particles = new THREE.Points( geometry, particleMaterials[ i ] );
+            scene.add( particles );
+
+            particlesEffects.push(particles);
+        }
+    }
+
     function setupPostProcessing(renderer){
 
         composer = new EffectComposer( renderer );
@@ -1103,32 +1157,30 @@
             sphere.visible = true;
 
             var material = new THREE.ShaderMaterial({
-            uniforms: {
-                color1: {value: new THREE.Color("red")},
-                color2: {value: new THREE.Color("orange") },
-            },
-            vertexShader: `
-                varying vec2 vUv;
+                uniforms: {
+                    color1: {value: new THREE.Color("red")},
+                    color2: {value: new THREE.Color("orange") },
+                },
+                vertexShader: `
+                    varying vec2 vUv;
 
-                void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform vec3 color1;
-                uniform vec3 color2;
-            
-                varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 color1;
+                    uniform vec3 color2;
                 
-                void main() {
-                
-                gl_FragColor = vec4(mix(color1, color2, vUv.y), 1.0);
-                }
+                    varying vec2 vUv;
+                    
+                    void main() {
+                        gl_FragColor = vec4(mix(color1, color2, vUv.y), 1.0);
+                    }
             `,
                 wireframe: false
             });
-            //new THREE.MeshBasicMaterial( { color: 0xf4ccbd } )
             mesh = new THREE.Mesh( sphere, material);
 
             light.add(mesh);
