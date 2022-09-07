@@ -519,7 +519,7 @@
     }
 
 
-    function animateTorchLight(light, autoStart = false){
+    function animateTorchLight(light, mesh, autoStart = false){
         if (debugMode){
             console.log("Animating torch light: "+light.parent);
         }
@@ -532,6 +532,19 @@
             if (autoStart) tween.start();
 
             torchLightsTweens.push(tween)
+
+
+        if (mesh!=null){
+            const tweenFire = new TWEEN.Tween(mesh.scale)
+                .to({x: mesh.scale.x+0.1, y: mesh.scale.y+0.3, z: mesh.scale.z+0.5}, ( Math.random()) * 1000 + 1000)
+                .yoyo(true)
+                .repeat(Infinity)
+                .easing(TWEEN.Easing.Linear.None);
+                
+                if (autoStart) tweenFire.start();
+
+                torchLightsTweens.push(tweenFire)
+        }
     }
 
     function oscillateBoatTorch(mesh){
@@ -1119,10 +1132,13 @@
             mesh = new THREE.Mesh( sphere, material);
 
             light.add(mesh);
+
+            animateTorchLight(light,mesh, animate);
+        }
+        else {
+            animateTorchLight(light,null, animate);
         }
 
-        animateTorchLight(light, animate);
-        
         father.add( light );
         
         light.position.z+=deltaZ;
