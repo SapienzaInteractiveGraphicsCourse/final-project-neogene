@@ -7,6 +7,7 @@
     <title>Andrea Leganza - 788513</title>
     <script src="js/tween/tween.umd.js"></script>
     <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+    <script src="js/cannon.min.js"></script>
     <script type="importmap">
         {
             "imports": {
@@ -118,7 +119,8 @@
     var deltaTime;
 
     //Settings
-    var debugMode = DebugMode.off
+    var debugMode = DebugMode.on
+    var debugModePhoenixPath = DebugMode.off
     var nightMode = NightMode.on
     var fogMode = FogMode.linear
     var antialias = AntialiasMode.on
@@ -134,6 +136,8 @@
     var waterMode = WaterMode.on;
     var particleMode = ParticleMode.off;
 
+    var loading = true
+
     var skybox;
     var skyEmbedded;
     var sea;
@@ -143,6 +147,7 @@
     var water;
 
     var phoenix
+    var phoenixTweens = [];
     var phoenixGroup;
     
     //Ligths
@@ -179,8 +184,6 @@
 
     const WINDOWS_EMISSIVE_VALUE = 100;
     const PHOENIX_EMISSIVE_VALUE = 0.1;
-
-    const animationsObjects = [];
 
     //Renderer
     const renderer = new THREE.WebGLRenderer({antialias: antialias}); 
@@ -234,11 +237,11 @@
     }
 
     //Local light
-    spotLight = new THREE.SpotLight(0xd4d49c, 3);
+    spotLight = new THREE.SpotLight(0xd4d49c, 8);
     spotLight.position.set(0, 5, 1.4);
     spotLight.castShadow = lightsShadow;
     spotLight.penumbra = 0.05;
-    spotLight.intensity = 3;
+    spotLight.intensity = 8;
     spotLight.distance = 10;
     spotLight.angle = 0.7;
     spotLight.target = water; //target has to be added before this command
@@ -277,6 +280,7 @@
                         const groundNormalTexture = new THREE.TextureLoader().load( '3D/seaport/textures/Environment_normal.png' , function ( texture ) {
                             o.material.normalMap = texture
                             o.material.normalScale = new THREE.Vector3( 1, 1 );
+                            o.material.needsUpdate = true;
                         });
                     }
                     else if (o.name == "Sea_sea_0"){
@@ -306,7 +310,7 @@
                 scene.add( gltf.scene );
             }
 
-            loadBoat()
+            loadPhoenix()
 
         }, undefined, function ( error ) {
 
@@ -316,7 +320,21 @@
     }
 
 //BOAT
+
+    function removeBoat(){
+        if (boatGroup!=null){
+            scene.remove(boatGroup.children)
+            boatGroup.parent.remove(boatGroup);
+            boatGroup = null
+        }
+    }
+
     function loadBoat(){
+
+        if (boatGroup!=null){
+            return
+        }
+
         const loader = new GLTFLoader();
 
         loader.load( '3D/boat/boat.gltf', function ( gltf ) {
@@ -382,8 +400,6 @@
             else if (sea!=null) {
                 sea.add(boatGroup);
             }
-
-            loadPhoenix()
         })
     }
 
@@ -403,12 +419,41 @@
             placeGUI(scene, renderer, camera, controls, false);
         }
 
+        loading = false;
+        
         //we can now start the whole engine
         animate();
     }
 
-    //BOAT
-    function loadPhoenix(){
+    //PHOENIX
+
+    function removePhoenix(){
+        if (phoenixGroup!=null){
+            
+            phoenixGroup.parent.remove(phoenixGroup)
+            
+            if (phoenix!=null){
+                phoenix.parent.remove(phoenix)
+                phoenix = null
+            }
+            phoenixGroup = null
+            
+            removePhoenixPath()
+
+            for (let tween of phoenixTweens){
+                tween.stop()
+            }
+
+            phoenixTweens = []
+        }
+    }
+
+    function loadPhoenix(firstLoad = true){
+
+        if (phoenix!=null || phoenixGroup!=null){
+            return
+        }
+
         const loader = new GLTFLoader();
 
         loader.load( '3D/phoenix/phoenix.gltf', function ( gltf ) {
@@ -450,7 +495,9 @@
 
             loadPhoenixPath();
             
-            endLoadingMeshes();
+            if (firstLoad){
+                endLoadingMeshes();
+            }
         })
     }
 
@@ -459,6 +506,14 @@
     var up = new THREE.Vector3( 1, 0, 0 )
     var counter = 0;
     var spline;
+
+    function removePhoenixPath(){
+        if (spline!=null){
+            scene.remove(spline)
+            spline = null
+            counter = 0
+        }
+    }
 
     function loadPhoenixPath(){
 
@@ -473,7 +528,7 @@
         new THREE.Vector3( 1 , 1, -1.1),
     ] , true );
 
-        if (debugMode){
+        if (debugModePhoenixPath){
             const points = spline.getPoints( 30 );
             const geometry = new THREE.BufferGeometry().setFromPoints( points );
 
@@ -504,6 +559,8 @@
               
             })*/
             .start()
+
+        phoenixTweens.push(tween)
     
     }
 
@@ -574,17 +631,16 @@
     //render loop
     var totalTime = 0;
     function animate() {
+
+        if (loading){
+            return
+        }
+
         deltaTime = clock.getDelta();
      
         totalTime+=deltaTime;
 
         controls.update();
-        
-        animationsObjects.forEach(mesh => {
-            if (mesh.userData.clock && mesh.userData.mixer) {
-                mesh.userData.mixer.update(mesh.userData.clock.getDelta());
-            }
-        })
 
         if (skyEmbedded!=null && skyEmbedded.visible) {
 
@@ -606,27 +662,31 @@
             boatGroup.position.z = Math.cos(totalTime)*0.05;
         }
 
+        //Fireflies
+        if (particlesEffects.length>0){
+            const time = Date.now() * 0.00001;
+            for ( let i = 0; i < particlesEffects.length; i ++ ) {
+                particlesEffects[i].rotation.y = time * ( i < 4 ? i + 1 : - ( i + 1 ) );
+            }
+
+            for ( let i = 0; i < particleMaterials.length; i ++ ) {
+
+                const color = particleParameters[ i ][ 0 ];
+
+                const h = ( 360 * ( color[ 0 ] + time ) % 360 ) / 360;
+                particleMaterials[ i ].color.setHSL( h, color[ 1 ], color[ 2 ] );
+
+            }
+        }
+
+        //Phoenix animation
+        if (phoenix!=null) {
+            movePhoenixAroundPath(deltaTime*0.05);
+        }
+
         requestAnimationFrame( animate );
         postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
         TWEEN.update();
-
-        //Fireflies
-        const time = Date.now() * 0.00001;
-        for ( let i = 0; i < particlesEffects.length; i ++ ) {
-            particlesEffects[i].rotation.y = time * ( i < 4 ? i + 1 : - ( i + 1 ) );
-        }
-
-        for ( let i = 0; i < particleMaterials.length; i ++ ) {
-
-            const color = particleParameters[ i ][ 0 ];
-
-            const h = ( 360 * ( color[ 0 ] + time ) % 360 ) / 360;
-            particleMaterials[ i ].color.setHSL( h, color[ 1 ], color[ 2 ] );
-
-        }
-
-        //Phoeix animation
-        movePhoenixAroundPath(deltaTime*0.05);
     }
 
     function placeWater(scene, sun) {
@@ -647,6 +707,7 @@
             fog: scene.fog !== undefined
           }
         );
+        water.receiveShadow = true
         water.position.y = -0.1;
         water.rotation.x =- Math.PI / 2;
 
@@ -693,6 +754,11 @@
     }
 
     function placeFog(scene, mode, near = 7, far = 24, color=0x000000, expDensity = 0.12){
+
+        if (debugMode){
+            console.log(mode)
+        }
+
         if (mode == FogMode.linear) {
             const near = 7;
             const far = 24;
@@ -761,6 +827,9 @@
                 if (debugMode) console.log("loaded sky texture: "+textureName); 
 
             }
+
+            let playerSeagull = document.getElementById('audioSeagullPlayer');
+            let playerCrickets = document.getElementById('audioCricketsPlayer');
             
             if (skyTime == SkyTime.night){
                 ambientLight.visible = true
@@ -788,9 +857,17 @@
                 spotLight.color.setHex(0x6888d9)
 
                 placeFireFlies()
+
+                loadBoat()
+
+                removePhoenix()
+
+                playerCrickets.play()
+                playerSeagull.pause()
+                playerSeagull.currentTime = 0
             }
             else {
-                spotLight.intensity = 3
+                spotLight.intensity = 8
 
                 spotLight.color.setHex(0xffffff)
                 ambientLight.color.setHex(0xffffff);
@@ -809,6 +886,14 @@
                 windowsLightParams.on = false
 
                 removeFireFlies()
+
+                removeBoat()
+
+                loadPhoenix(false)
+
+                playerCrickets.pause()
+                playerCrickets.currentTime = 0
+                playerSeagull.play()
             }
             
             fogMode = skyTime == SkyTime.night ? FogMode.exp : FogMode.linear;
@@ -834,17 +919,21 @@
             fogMode = currentMode == FogMode.none ? FogMode.linear : currentMode == FogMode.exp ? FogMode.none : FogMode.exp;
             placeFog(scene,fogMode)
         }};
-        sceneFolder.add(fogButton,'fog').name("Switch Fog mode (Linear, Exp, off)");
+        sceneFolder.add(fogButton,'fog').name("Switch Fog mode (Linear, Exp, off)")
         
         var fogColorParams = {color: "#000000"};
         sceneFolder.addColor(fogColorParams,'color').name("Fog color").onChange( function() {
              scene.fog.color.set( fogColorParams.color );
         } );
-        sceneFolder.add(scene.fog, 'near', 0, 50).onChange( function(value) {
-            scene.fog.near = value;
+        sceneFolder.add(scene.fog, 'near', 0, 50).name("Linear fog near").onChange( function(value) {
+            if (fogMode == FogMode.linear){
+                scene.fog.near = value;
+            }
         } );
-        sceneFolder.add(scene.fog, 'far', 0, 50).onChange( function(value) {
-            scene.fog.far = value;
+        sceneFolder.add(scene.fog, 'far', 0, 50).name("Linear fog far").onChange( function(value) {
+            if (fogMode == FogMode.linear){
+                scene.fog.far = value;
+            }
         } );
         var fogDensityParams = {density: 0.1};
         sceneFolder.add(fogDensityParams, 'density', 0, 3).name("Exp. fog density").step(0.01).onChange( function(value) {
@@ -1032,19 +1121,34 @@
         
         let player = document.getElementById('audioPlayer');
         let playerSeagull = document.getElementById('audioSeagullPlayer');
+        let playerCrickets = document.getElementById('audioCricketsPlayer');
 
         var audioPlayingParams = {on: true};
         audioFolder.add(audioPlayingParams,'on').listen().name("Audio").setValue(true).onChange( function() {
             player.paused ? player.play() : player.pause();
-            playerSeagull.paused ? playerSeagull.play() : playerSeagull.pause();
+            
+            if (skyTime == SkyTime.day) {
+                playerSeagull.paused ? playerSeagull.play() : playerSeagull.pause();
+            }
+            else {
+                playerCrickets.paused ? playerCrickets.play() : playerCrickets.pause();
+            }
         } );
         var audioVolumeParams = {volume: player.volume};
         audioFolder.add(player, 'volume', 0, 1).name("Volume").setValue(0.05).step(0.001).onChange( function(value) {
             player.volume = value;
-            playerSeagull.volume = player.volume;
-
+            playerSeagull.volume = player.volume-0.1;
+            playerCrickets.volume = player.volume-0.1
         } );
         if (opened) audioFolder.open()
+
+        //Debug
+        const debugFolder = gui.addFolder('Debug')
+        var debugParams = {on: debugMode};
+        debugFolder.add(debugParams,'on').name("Log messages").setValue(debugMode).onChange( function(value) {
+            debugParams = value
+        })
+        if (opened) debugFolder.open()
 
     }
 
@@ -1100,9 +1204,10 @@
             particleMaterials[ i ].color.setHSL( color[ 0 ], color[ 1 ], color[ 2 ] );
 
             const particles = new THREE.Points( geometry, particleMaterials[ i ] );
-            scene.add( particles );
 
             particlesEffects.push(particles);
+
+            scene.add( particles );
         }
     }
 
@@ -1263,6 +1368,11 @@
 <audio id="audioSeagullPlayer" autoplay loop>
     <source src="/audio/seagull.ogg" type="audio/ogg">
     <embed src="/audio/seagull.mp3" autostart="true" loop="true" hidden="true"> 
+</audio>
+
+<audio id="audioCricketsPlayer" loop>
+    <source src="/audio/crickets.ogg" type="audio/ogg">
+    <embed src="/audio/crickets.mp3" autostart="true" loop="true" hidden="true"> 
 </audio>
 </body>
 </html>
