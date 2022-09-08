@@ -1,0 +1,208 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage{graphicx}
+\textwidth=450pt\oddsidemargin=0pt
+\pagenumbering{arabic}
+
+\begin{document}
+\begin{titlepage}
+\vspace{15mm}
+\begin{center}
+{\LARGE{\bf Andrea Leganza}}\\
+\vspace{3mm}
+{\LARGE{\bf MAT. 788513}}\\
+\vspace{3mm}
+{\LARGE{\bf\ }}\\
+\end{center}
+\vspace{40mm}
+\par
+\noindent
+\begin{minipage}[t]{0.47\textwidth}
+{\large{\bf}}
+\end{minipage}
+\hfill
+\begin{center}
+{\large{\bf Homework \#1: Table }}
+\end{center}
+\vspace{20mm}
+\begin{center}
+{\large{\bf 01/05/2022}}
+\end{center}
+\end{titlepage}
+\pagebreak
+
+
+\section{Scene creation}
+The scene was created using the max of available vertices (40), the ground was added to make the whole scene more interesting in terms of look and feel. Some parameters are parametric: ground size, table height, vertices start position displacement (these parameters are JavaScript constants). The texture choosen was an old wood version. I preferred to use only one vertex and one fragment shaders to manage the whole scene, even if it increases the complexity it was quicker to manage and modify, doing a refactoring to split them will then require to use a simple couple of calls to gl.useProgram(shader) command. The light aspect of the shader was the one that took most of the development time: i started with vertex lighting and the moving to fragment one, the spotlight development required many steps to reach a worth look. I added a global light to the scene to improve the scene look. Regarding motion blur i didn't manage to provide a working solution in time, i developed the code to create the two fbo required to produce the result, my guess was to do an interpolation between the pixels values of them "adding"/"multiplying" the previous one to the current rendered frame. Programming code is commented to explain the different choices.
+
+\section{User interface and functionalities}
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{ui}
+\end{center}
+ 
+The GUI was developed using inline and embedded CSS, the whole interaction is controlled by javascript events. It provides controls to control and reset the following parameters:
+ 
+ \begin{itemize}
+ \item Geometry: Translate geometry at runtime
+ \item Material: lit/unlit mode, diffuse, specular, ambient, shininess
+ \item Camera: position and frustum settings
+ \item Rotation: around center and custom set pivot, rotation speed -developed as frame-independent using a Time deltatime factor-, pivot translation, axis rotation, rotation direction
+ \item Scene lighting mode: vertex/fragment mode
+ \item Ambient light: position and color properties
+ \item Spotlight: cone settings, intensity, position, rotation, color properties, 
+ \item Features: face culling modes, background color selection
+ \end{itemize}
+
+I had to create two support functions to manage hex color, received by HTML color pickers to vec4 and vice-versa, and rad2deg/deg2rag utility constants.
+
+\section{Render code}
+\tiny
+\begin{verbatim}
+//*********************
+//FRAME CREATION
+//*********************
+var prevFrameTime = 0;
+
+function render(now)
+{
+    //Time delta time used to make rotation framerate indipendent
+    now *= 0.001;
+    var DELTA_TIME = now - prevFrameTime;
+    if (isNaN(DELTA_TIME)){
+        DELTA_TIME = 0;
+    }
+    prevFrameTime = now;
+
+
+    //Camera/View
+    const projectionMatrix = perspective(camFovy, camAspect, camNear, camFar);
+
+    if (rotateEnabled){
+        theta[axis] += rotationDirection * rotationSpeed * DELTA_TIME;
+    }
+
+    gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
+
+    const eye = vec3( camRadius*Math.sin(thetaCam)*Math.cos(camPhi),
+                      camRadius*Math.sin(thetaCam)*Math.sin(camPhi),
+                      camRadius*Math.cos(thetaCam))
+
+    var modelViewMatrix = lookAt(eye, cameraLookAt, UP);
+    
+    modelViewMatrix = mult(modelViewMatrix, translate(geometryPosition[0], geometryPosition[1], geometryPosition[2]));
+
+    //Rrotations
+    if (rotateEnabled){
+
+        modelViewMatrix = mult(modelViewMatrix, rotate(theta[X_AXIS], vec3(1, 0, 0) ));
+        modelViewMatrix = mult(modelViewMatrix, rotate(theta[Y_AXIS], vec3(0, 1, 0) ));
+        modelViewMatrix = mult(modelViewMatrix, rotate(theta[Z_AXIS], vec3(0, 0, 1) ));
+
+        if (rotateAroundPivot){
+            modelViewMatrix = mult(modelViewMatrix, translate(pivotPosition[0], pivotPosition[1], pivotPosition[2]));
+        }
+    }
+    
+    var worldMatrix = lookAt(eye, cameraLookAt, UP);
+
+    worldMatrix = mult(worldMatrix, rotate(theta[X_AXIS], vec3(1, 0, 0) ));
+    worldMatrix = mult(worldMatrix, rotate(theta[Y_AXIS], vec3(0, 1, 0) ));
+    worldMatrix = mult(worldMatrix, rotate(theta[Z_AXIS], vec3(0, 0, 1) ));
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program,"uWorldMatrix"), false, flatten(worldMatrix));
+    gl.uniform3fv(gl.getUniformLocation(program,"uViewWorldPosition"), eye);
+
+    //SpotLight stuff
+    //We generate normal matrix chich is the transpose of the inverse of the upper-left 3x3 part of the model matrix
+    const worldInverseMatrix = inverse(worldMatrix);
+    const worldInverseTransposeMatrix = transpose(worldInverseMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program,"uWorldInverseTransposeMatrix"), false, flatten(worldInverseTransposeMatrix)); 
+
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+
+    //Draw geometries
+    gl.drawArrays(gl.TRIANGLES, 0, SCENE_POSITIONS);
+
+    //gl.bindFramebuffer( gl.FRAMEBUFFER, null);
+   
+    //Request to render frame
+    requestAnimationFrame( render );
+}
+
+\end{verbatim}
+
+\section{SpotLight}
+Spotlight management extract from the vertex shader:
+\begin{verbatim}
+float spotLightDistance =  map(length(gl_Position.xyz-uSpotlightPosition), 0.0,1.0, 0.1,u_spotlightIntensity);
+        
+        if (useSpotLight){
+            if (!useVertexLighting) { //fragment lighting spotlight operations
+                v_surfaceToLight = (uSpotlightPosition - gl_Position.xyz);
+
+                vec3 surfaceWorldPosition = (uWorldMatrix * gl_Position).xyz;
+                v_surfaceToView = uViewWorldPosition-surfaceWorldPosition;
+                
+                //Normal matrix
+                outNormal =  mat3(uWorldInverseTransposeMatrix) * vNormal;
+
+                //Calculate distance between spotlight and vertex to define light intensity
+                v_distanceFromSpotlight = spotLightDistance;
+            }
+            else { //vertex lighting spotlight
+       
+                vec4 eyePosition = uModelViewMatrix*gl_Position;
+                vec3 difference = normalize((eyePosition - uAmbientLightPosition).xyz);
+
+                if(-dot(vNormal, difference)>0.0) {
+                    vec3 normalizedProduct = normalize((uModelViewMatrix * vec4(mat3(uWorldInverseTransposeMatrix) * vNormal, 1.0)).xyz);
+
+                    vColor += uSpotlightAmbientLightColor + uSpotlightSpecularLightColor*uSpotlightDiffuseLightColor;
+              
+                    //Calulate intensity based on dot product between vertex normal and spotlight direction
+                    float light = max(0.0, dot(normalizedProduct, uSpotlightDirection.xyz));     
+                    vColor.rgb *= light * spotLightDistance;
+                    
+                }     
+            }
+        }
+\end{verbatim}
+
+Extract from the fragment shader:
+\begin{verbatim}
+  if (useSpotLight){ 
+   vec3 normalizedNormals = normalize(outNormal);
+            vec3 faceToLightDirN = normalize(v_surfaceToLight);
+            vec3 faceToViewDirN = normalize(v_surfaceToView);
+            vec3 middleFaceLightAndViewVectorN = normalize(faceToLightDirN + faceToViewDirN); //in the middle
+
+            float dotDirection = dot(faceToLightDirN, - uSpotlightDirection); //dot product between surface dir to spotlight dir
+            float lightReceived = smoothstep(uSpotlightSpotOuterCutoff, uSpotlightSpotCutoff, dotDirection); //Hermite interpolation 
+            float lightWeighted = lightReceived * dot(normalizedNormals, faceToLightDirN) *  v_distanceFromSpotlight; //use distance too control intensity
+            
+            fColor += (uSpotlightAmbientLightColor + uSpotlightSpecularLightColor)*uSpotlightDiffuseLightColor;
+
+            float specularReceived = lightReceived * pow(dot(normalizedNormals, middleFaceLightAndViewVectorN), uSpotlightShininess);
+          
+            //If is NOT "below" or perpendicular -> use 
+            if(dot(normalizedNormals, middleFaceLightAndViewVectorN) > 0.0 ) {
+                fColor.rgb += specularReceived;
+            }
+
+            if (useSpotLightAdditive){
+                fColor.rgb += lightWeighted;
+            }
+            else {
+                fColor.rgb *= lightWeighted;
+            }
+    
+        }
+\end{verbatim}
+
+\section{Final result}
+\begin{center}
+\includegraphics[width=0.6\textwidth]{result}
+\end{center}
+
+\end{document}
+

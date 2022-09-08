@@ -10,12 +10,12 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.144.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.144.0/examples/jsm/",
-                "three/post/": "https://unpkg.com/three@0.144.0/examples/js/postProcessing/",
+                "three": "/js/three/three.module.js",
+                "three/addons/": "/js/three/examples/jsm/",
+                "three/post/": "/js/three/examples/js/postProcessing/",
                 
                 "GUI": "./Libs/datgui/dat.gui.module.js",
-                "OrbitControls": "https://unpkg.com/three@0.144.0/examples/jsm/controls/OrbitControls.js"
+                "OrbitControls": "/js/three/examples/jsm/controls/OrbitControls.js"
             }
         }
     </script>
@@ -35,12 +35,12 @@
     import { OrbitControls } from 'OrbitControls';
     import { GUI } from 'GUI'
 
-    import { EffectComposer } from  'https://threejs.org/examples/jsm/postprocessing/EffectComposer.js';
-    import { RenderPass } from      'https://threejs.org/examples/jsm/postprocessing/RenderPass.js';
-    import { UnrealBloomPass } from 'https://threejs.org/examples/jsm/postprocessing/UnrealBloomPass.js';
-    import { BokehPass } from       'https://threejs.org/examples/jsm/postprocessing/BokehPass.js';
-    import { Water } from           'https://threejs.org/examples/jsm/objects/Water.js';
-    import { Sky } from             'https://threejs.org/examples/jsm/objects/Sky.js';
+    import { EffectComposer } from  '/js/three/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from      '/js/three/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from '/js/three/examples/jsm/postprocessing/UnrealBloomPass.js';
+    import { BokehPass } from       '/js/three/examples/jsm/postprocessing/BokehPass.js';
+    import { Water } from           '/js/three/examples/jsm/objects/Water.js';
+    import { Sky } from             '/js/three/examples/jsm/objects/Sky.js';
 
     const FogMode = {
         none : 0,
@@ -287,7 +287,7 @@
                             o.material.needsUpdate = true;
                         });
                     }
-                    else if (o.name == "Sea_sea_0"){
+                    else if (o.name == "Sea001"){
                         sea = o;
                     }
                     else if (o.name.toLowerCase().includes("torch")){
@@ -671,7 +671,12 @@
 
             floatingObjects.push(mesh);
         
-            water.add(mesh);
+            if (water!=null){
+                water.add(mesh);
+            }
+            else {
+                sea.add(mesh)
+            }
 
         });
 
