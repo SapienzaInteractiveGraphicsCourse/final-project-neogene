@@ -1197,8 +1197,8 @@
         var audioVolumeParams = {volume: player.volume};
         audioFolder.add(player, 'volume', 0, 1).name("Volume").setValue(0.05).step(0.001).onChange( function(value) {
             player.volume = value;
-            playerSeagull.volume = player.volume-0.1;
-            playerCrickets.volume = player.volume-0.1
+            playerSeagull.volume = player.volume;
+            playerCrickets.volume = player.volume;
         } );
         if (opened) audioFolder.open()
 
@@ -1378,7 +1378,7 @@
         document.getElementById('audioPlayer').volume = 0.05;
 
         document.getElementById('audioSeagullPlayer').play();
-        document.getElementById('audioSeagullPlayer').volume = 0.05;
+        document.getElementById('audioSeagullPlayer').volume =  document.getElementById('audioPlayer').volume;
 
         document.removeEventListener('click', musicPlay);
 
