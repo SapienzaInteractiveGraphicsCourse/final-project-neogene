@@ -1,0 +1,6 @@
+Documentation/*.png
+Documentation/*.jpg
+Documentation/*.tex.bak
+Documentation/*.synctex.gz
+Documentation/*.log
+Documentation/*.aux

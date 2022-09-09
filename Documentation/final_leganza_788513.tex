@@ -1,5 +1,9 @@
 \documentclass[10pt,a4paper]{article}
 \usepackage{graphicx}
+\usepackage{subfig}
+\usepackage{float}
+\usepackage[english]{babel}
+\usepackage[font=small,labelfont=bf]{caption}
 \textwidth=450pt\oddsidemargin=0pt
 \pagenumbering{arabic}
 
@@ -21,188 +25,268 @@
 \end{minipage}
 \hfill
 \begin{center}
-{\large{\bf Homework \#1: Table }}
+{\large{\bf Final homework }}
 \end{center}
 \vspace{20mm}
 \begin{center}
-{\large{\bf 01/05/2022}}
+{\large{\bf 09/09/2022}}
 \end{center}
 \end{titlepage}
 \pagebreak
 
 
-\section{Scene creation}
-The scene was created using the max of available vertices (40), the ground was added to make the whole scene more interesting in terms of look and feel. Some parameters are parametric: ground size, table height, vertices start position displacement (these parameters are JavaScript constants). The texture choosen was an old wood version. I preferred to use only one vertex and one fragment shaders to manage the whole scene, even if it increases the complexity it was quicker to manage and modify, doing a refactoring to split them will then require to use a simple couple of calls to gl.useProgram(shader) command. The light aspect of the shader was the one that took most of the development time: i started with vertex lighting and the moving to fragment one, the spotlight development required many steps to reach a worth look. I added a global light to the scene to improve the scene look. Regarding motion blur i didn't manage to provide a working solution in time, i developed the code to create the two fbo required to produce the result, my guess was to do an interpolation between the pixels values of them "adding"/"multiplying" the previous one to the current rendered frame. Programming code is commented to explain the different choices.
+\section{Scene description}
+The scene is a diorama of an island placed in the middle of the ocean, the scene can be switched to day and night mode showing/hiding different elements.
 
-\section{User interface and functionalities}
+\section{Assets}
 
-\begin{center}
-\includegraphics[width=0.8\textwidth]{ui}
-\end{center}
- 
-The GUI was developed using inline and embedded CSS, the whole interaction is controlled by javascript events. It provides controls to control and reset the following parameters:
+Props were mainly dowloaded from sketchfab.org website in GLTF format:
+
+\begin{itemize}
+ \item Castle
+ \item Phoenix
+ \item Boat
+\end{itemize}
+
+Most of the models required to be cleaned up, their structure and original materials to be modified too.
+
+Leaves on the water were created using a simple transparent plane and applying on realtime downloaded textures, while fireflies where created using a plane with random color.
+
+\section{User interface}
+
+The GUI was developed using DAT.GUI, the whole interaction is controlled by javascript events. It provides controls to control all the aspect of the scene:
  
  \begin{itemize}
- \item Geometry: Translate geometry at runtime
- \item Material: lit/unlit mode, diffuse, specular, ambient, shininess
- \item Camera: position and frustum settings
- \item Rotation: around center and custom set pivot, rotation speed -developed as frame-independent using a Time deltatime factor-, pivot translation, axis rotation, rotation direction
- \item Scene lighting mode: vertex/fragment mode
- \item Ambient light: position and color properties
- \item Spotlight: cone settings, intensity, position, rotation, color properties, 
- \item Features: face culling modes, background color selection
+ \item Camera: position and rotation
+ \item Controls: speed parameters, autorotate parameters
+ \item Day/night switch, fog parameters, shadowmap on/off
+ \item Ambient light: on/off, intensity and color
+ \item Torches: on/off, animation, color, intensity
+ \item Spotlight: on/off, shadows, color, intensity, distance, angle, penumbra, position
+ \item Sky: on/off
+ \item Water: on/off
+ \item Particles: night fireflies on/off
+ \item Postprocessing: on/off bloom/dof parameters
+ \item Audio: on/off, volume
+ \item Debug: on/off
  \end{itemize}
+ 
+\begin{figure}[H]
+\hfill
+\subfloat[Menu]{\includegraphics[width=3cm]{ui0}}
+\hfill
+\subfloat[Menu]{\includegraphics[width=3cm]{ui1}}
+\hfill
+\subfloat[Menu]{\includegraphics[width=3cm]{ui2}}
+\hfill
+\caption{Menu views}
+\end{figure}
 
-I had to create two support functions to manage hex color, received by HTML color pickers to vec4 and vice-versa, and rad2deg/deg2rag utility constants.
+\section{Day/Night mode}
 
-\section{Render code}
-\tiny
+Switching to day/night mode using the GUI button lets to switch to different look of the scene, showing/hiding different elements:
+
+\begin{itemize}
+ \item Day: Phoenix flies around  the castle, sky rotates around, leaves float
+ \item Night: A boat travels around the castle, night sky rotates, fireflies fly around, torches lights up and animate their flame
+\end{itemize}
+
+\begin{itemize}
+ \item The sky changes its texture from a cloudy day to a night sky.
+ \item Fog changes to exp mode during night to increase the night look darkening the whole scene.
+ \item Switching to night/day also customizes the lights with different colors and intensities to improve the scene look.
+\end{itemize}
+\begin{center}
+\begin{figure}[H]
+\caption{The DAY mode look}
+\includegraphics[width=1\textwidth,keepaspectratio]{day}
+\caption{The NIGTH mode look}
+\includegraphics[width=1\textwidth,keepaspectratio]{night}
+\end{figure}
+\end{center}
+
+\section{Torches}
+
+\begin{figure}[H]
+\caption{One of the torches}
+\includegraphics[width=0.8\textwidth]{torch}
+\end{figure}
+
+
+Torches are detected during mesh loading and to them are added:
+
+\begin{itemize}
+ \item A spotlight is added with related animation tween
+ \item A sphere with some faces to mimic a Platonic solid to simulate the flame
+\end{itemize}
+
+To set the color of the flame a custom shader was made, which interpolates between two colors during the time (an uniform updated during the animation loop using a deltatime value) :
+
 \begin{verbatim}
-//*********************
-//FRAME CREATION
-//*********************
-var prevFrameTime = 0;
+ const sphere = new THREE.SphereGeometry( 3, 4, 2 );
+   phere.visible = true;
 
-function render(now)
-{
-    //Time delta time used to make rotation framerate indipendent
-    now *= 0.001;
-    var DELTA_TIME = now - prevFrameTime;
-    if (isNaN(DELTA_TIME)){
-        DELTA_TIME = 0;
-    }
-    prevFrameTime = now;
+   var material = new THREE.ShaderMaterial({
+   uniforms: {
+       color1: {value: new THREE.Color("red")},
+        color2: {value: new THREE.Color("orange") },
+                u_time: { type: "f", value: 0 }},
+                vertexShader: `
+                    varying vec2 vUv;
 
-
-    //Camera/View
-    const projectionMatrix = perspective(camFovy, camAspect, camNear, camFar);
-
-    if (rotateEnabled){
-        theta[axis] += rotationDirection * rotationSpeed * DELTA_TIME;
-    }
-
-    gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
-
-    const eye = vec3( camRadius*Math.sin(thetaCam)*Math.cos(camPhi),
-                      camRadius*Math.sin(thetaCam)*Math.sin(camPhi),
-                      camRadius*Math.cos(thetaCam))
-
-    var modelViewMatrix = lookAt(eye, cameraLookAt, UP);
-    
-    modelViewMatrix = mult(modelViewMatrix, translate(geometryPosition[0], geometryPosition[1], geometryPosition[2]));
-
-    //Rrotations
-    if (rotateEnabled){
-
-        modelViewMatrix = mult(modelViewMatrix, rotate(theta[X_AXIS], vec3(1, 0, 0) ));
-        modelViewMatrix = mult(modelViewMatrix, rotate(theta[Y_AXIS], vec3(0, 1, 0) ));
-        modelViewMatrix = mult(modelViewMatrix, rotate(theta[Z_AXIS], vec3(0, 0, 1) ));
-
-        if (rotateAroundPivot){
-            modelViewMatrix = mult(modelViewMatrix, translate(pivotPosition[0], pivotPosition[1], pivotPosition[2]));
-        }
-    }
-    
-    var worldMatrix = lookAt(eye, cameraLookAt, UP);
-
-    worldMatrix = mult(worldMatrix, rotate(theta[X_AXIS], vec3(1, 0, 0) ));
-    worldMatrix = mult(worldMatrix, rotate(theta[Y_AXIS], vec3(0, 1, 0) ));
-    worldMatrix = mult(worldMatrix, rotate(theta[Z_AXIS], vec3(0, 0, 1) ));
-
-    gl.uniformMatrix4fv(gl.getUniformLocation(program,"uWorldMatrix"), false, flatten(worldMatrix));
-    gl.uniform3fv(gl.getUniformLocation(program,"uViewWorldPosition"), eye);
-
-    //SpotLight stuff
-    //We generate normal matrix chich is the transpose of the inverse of the upper-left 3x3 part of the model matrix
-    const worldInverseMatrix = inverse(worldMatrix);
-    const worldInverseTransposeMatrix = transpose(worldInverseMatrix);
-    gl.uniformMatrix4fv(gl.getUniformLocation(program,"uWorldInverseTransposeMatrix"), false, flatten(worldInverseTransposeMatrix)); 
-
-    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
-
-    //Draw geometries
-    gl.drawArrays(gl.TRIANGLES, 0, SCENE_POSITIONS);
-
-    //gl.bindFramebuffer( gl.FRAMEBUFFER, null);
-   
-    //Request to render frame
-    requestAnimationFrame( render );
-}
-
-\end{verbatim}
-
-\section{SpotLight}
-Spotlight management extract from the vertex shader:
-\begin{verbatim}
-float spotLightDistance =  map(length(gl_Position.xyz-uSpotlightPosition), 0.0,1.0, 0.1,u_spotlightIntensity);
-        
-        if (useSpotLight){
-            if (!useVertexLighting) { //fragment lighting spotlight operations
-                v_surfaceToLight = (uSpotlightPosition - gl_Position.xyz);
-
-                vec3 surfaceWorldPosition = (uWorldMatrix * gl_Position).xyz;
-                v_surfaceToView = uViewWorldPosition-surfaceWorldPosition;
-                
-                //Normal matrix
-                outNormal =  mat3(uWorldInverseTransposeMatrix) * vNormal;
-
-                //Calculate distance between spotlight and vertex to define light intensity
-                v_distanceFromSpotlight = spotLightDistance;
-            }
-            else { //vertex lighting spotlight
-       
-                vec4 eyePosition = uModelViewMatrix*gl_Position;
-                vec3 difference = normalize((eyePosition - uAmbientLightPosition).xyz);
-
-                if(-dot(vNormal, difference)>0.0) {
-                    vec3 normalizedProduct = normalize((uModelViewMatrix * vec4(mat3(uWorldInverseTransposeMatrix) * vNormal, 1.0)).xyz);
-
-                    vColor += uSpotlightAmbientLightColor + uSpotlightSpecularLightColor*uSpotlightDiffuseLightColor;
-              
-                    //Calulate intensity based on dot product between vertex normal and spotlight direction
-                    float light = max(0.0, dot(normalizedProduct, uSpotlightDirection.xyz));     
-                    vColor.rgb *= light * spotLightDistance;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 color1;
+                    uniform vec3 color2;
+                    uniform float u_time;
+                    varying vec2 vUv;
                     
-                }     
-            }
-        }
+                    void main() {
+                        gl_FragColor = vec4(mix(color1, color2, vUv.y+sin(u_time)), 1.0);
+                    }
+            `
+            });
+            });
 \end{verbatim}
 
-Extract from the fragment shader:
+\section{Leaves}
+
+Leaves were created with a simple double side transparent plane, loading a random local stored leaf texture; their float around the scene with a simple Math.sin movement which starts from a random generated value written/readen using mesh userData in the animation loop.
+
+\begin{figure}[H]
+  \includegraphics[width=0.5\textwidth]{leaves}
+     \caption{The leaves on the surface}
+\end{figure}
+
 \begin{verbatim}
-  if (useSpotLight){ 
-   vec3 normalizedNormals = normalize(outNormal);
-            vec3 faceToLightDirN = normalize(v_surfaceToLight);
-            vec3 faceToViewDirN = normalize(v_surfaceToView);
-            vec3 middleFaceLightAndViewVectorN = normalize(faceToLightDirN + faceToViewDirN); //in the middle
+  const geometry = new THREE.PlaneGeometry( 1, 1 );
+        const material = new THREE.MeshBasicMaterial( 
+        {color: 0x263529, side: THREE.DoubleSide, depthTest: true, transparent: true} );
 
-            float dotDirection = dot(faceToLightDirN, - uSpotlightDirection); //dot product between surface dir to spotlight dir
-            float lightReceived = smoothstep(uSpotlightSpotOuterCutoff, uSpotlightSpotCutoff, dotDirection); //Hermite interpolation 
-            float lightWeighted = lightReceived * dot(normalizedNormals, faceToLightDirN) *  v_distanceFromSpotlight; //use distance too control intensity
-            
-            fColor += (uSpotlightAmbientLightColor + uSpotlightSpecularLightColor)*uSpotlightDiffuseLightColor;
+        const textureName = 'Textures/leaf'+(Math.floor(Math.random() * 3) + 0)+'.png';
 
-            float specularReceived = lightReceived * pow(dot(normalizedNormals, middleFaceLightAndViewVectorN), uSpotlightShininess);
-          
-            //If is NOT "below" or perpendicular -> use 
-            if(dot(normalizedNormals, middleFaceLightAndViewVectorN) > 0.0 ) {
-                fColor.rgb += specularReceived;
+        material.map = new THREE.TextureLoader().load( textureName , function  (texture) {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        });
+        
+        var leavesCoordPosition = [];
+
+        for (var i= 0; i <50;i++){
+            var ranXNum = Math.ceil(Math.random() * 7) * (Math.round(Math.random()) ? 1 : -1)
+            var ranYNum = Math.ceil(Math.random() * 7) * (Math.round(Math.random()) ? 1 : -1)
+
+            const pos = new THREE.Vector3(ranXNum,ranYNum,0.1)
+            leavesCoordPosition.push(pos);     
+        }
+    
+        leavesCoordPosition.forEach(position => {
+
+            if (debugMode){
+                console.log(position);
             }
+       
+            const mesh = new THREE.Mesh( geometry, material );
+            mesh.rotation.z = Math.random() * Math.PI * 2; 
+            mesh.position.set(position.x,position.y,position.z);
+          
+            let s = Math.random() * 0.1 + 0.1;
+            mesh.scale.set(s, s, s);
+            mesh.userData.delta = Math.random() * Math.PI * 2;
 
-            if (useSpotLightAdditive){
-                fColor.rgb += lightWeighted;
+            floatingObjects.push(mesh);
+        
+            if (water!=null){
+                water.add(mesh);
             }
             else {
-                fColor.rgb *= lightWeighted;
+                sea.add(mesh)
             }
-    
-        }
+
+        });
 \end{verbatim}
 
-\section{Final result}
+\section{Animations}
+
+Animations were implemented with different techniques:
+
+\begin{itemize}
+ \item Updating rotation/position properties of mesh directly
+ \item Updating UV offset
+ \item Using Tween.JS
+ \item Updating shader properties
+\end{itemize}
+
+\bigbreak
+
+The following elements were animated:
+\begin{itemize}
+ \item Sky: rotates on z axis on day, on z and y axis during night
+ \item Water: translates up/down to simulate low/high tide
+ \item Torches: flame scales and rotates, their lights glow randomly
+ \item Leaves on the water: oscillate on the surface
+ \item Phoenix (day mode) flies and rotate around a spline (CatmullRomCurve3)
+ \item Boat (night mode) rotate around castle and floats up/down
+ \item Boat lantern: oscillates
+ \item Fireflies particles: randomly move
+ \end{itemize}
+
+\section{Phoenix}
+
+The original model was rigged and was a sigle mesh, the first operation that was done on it was to remove the whole rigging hierarchy and split the different segments in Blender, then a proper hierarchy was created starting  from the body. To speed up the animation process "custom properties" were  added to each of the mesh segments to pass axis, easing, delay and movement direction which were read in three.js by accessing the userdata property; these properties were then used by Tween.js to animate as needed. All the meshes required to set an ad hoc pivot to be properly aimated.
+
+\begin{figure}[H]
+   \caption{The phoenix structure}
+  \includegraphics[width=1\textwidth]{phoenix}
+\end{figure}
+
+\begin{figure}[H]
+\caption{Custom properties used to pass data to Three.js}
+\includegraphics[width=1\textwidth]{phoenix_data}
+\end{figure}
+
+\section{Boat}
+
+The boat was cleaned up, the pivot was changed to a proper position, the lantern was separated from the boat and the pivot set in the correct position for both of them to proper support the animation process.
+
 \begin{center}
-\includegraphics[width=0.6\textwidth]{result}
+\begin{figure}[H]
+\caption{The boat structure}
+\includegraphics[width=1\textwidth]{boat}
+\end{figure}
 \end{center}
+
+\section{Textures}
+The following textures were used:
+
+\begin{itemize}
+\item Base/Albedo map
+\item Normal map
+\item Emissive map
+\end{itemize}
+
+For some models the normal map was generated from base/albedo map using an online tool; for emission some maps were generated by hand modifying in Krita the base map; the emissive intensity effect was increased during the load of the models and a GUI option is available to change its value.
+
+\section{Lights}
+The lights used in the scene are different:
+
+\begin{itemize}
+\item An Ambient Light to light the whole scene
+\item A Spotlight to light from the top the castle
+\item Point lights for each torch lights to simulate the light of the torches
+\end{itemize}
+
+\section{Audio}
+
+A seashore audio loop sound effect is provided, during the day mode a seagull sound is played too, while during the night a crickets soud is played.
+
+\section{Render code}
+\begin{verbatim}
+
+\end{verbatim}
 
 \end{document}
 
