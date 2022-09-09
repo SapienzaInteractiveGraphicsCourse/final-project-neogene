@@ -249,12 +249,12 @@
                         castle.push(o);
                     }
                     else if (o.name.toLowerCase() == "sea"){
+                        o.matrixAutoUpdate = true
                         o.castShadow = false;
                         o.receiveShadow = false;
                         floatingTarget = waterMode ? water : o
                         sea = o;
                         animateLiquid(o)
-                        o.matrixAutoUpdate = true
                     }
                     else if (o.name.toLowerCase() == "sand"){
                         o.castShadow = false;
@@ -272,7 +272,7 @@
                     else if (o.name.toLowerCase().includes("torch")){
                         o.matrixAutoUpdate = true
                         placeTorchLight(o);
-                        o.matrixAutoUpdate = false
+                        o.matrixAutoUpdate = true
                         //castle.push(o);
                     }
 
@@ -701,8 +701,6 @@
         scene.add(water);
         
         waterUniforms = water.material.uniforms;
-
-        const waterTimeout = setTimeout(myGreeting, 100);
         
         return water;
     }
@@ -874,6 +872,9 @@
                 playerCrickets.play()
                 playerSeagull.pause()
                 playerSeagull.currentTime = 0
+
+                renderer.toneMappingExposure = Math.pow( 1, 4.0 );
+
             }
             else { //day
                 spotLight.intensity = waterMode ? 20 : 15
@@ -905,6 +906,9 @@
                 playerCrickets.pause()
                 playerCrickets.currentTime = 0
                 playerSeagull.play()
+
+                renderer.toneMappingExposure = Math.pow( 0.9, 4.0 );
+
             }
             
             fogMode = skyTime == SkyTime.night ? FogMode.exp : FogMode.linear;
@@ -1262,6 +1266,7 @@
         const renderPass = new RenderPass( scene, camera );
     
         const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+        renderer.toneMappingExposure = Math.pow( 0.9, 4.0 );
         bloomPass.threshold = bloomParams.bloomThreshold;
         bloomPass.strength = bloomParams.bloomStrength;
         bloomPass.radius = bloomParams.bloomRadius;
