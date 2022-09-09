@@ -196,29 +196,13 @@
         },
         {
             "mesh" : 13,
-            "name" : "Sea",
-            "translation" : [
-                0,
-                0,
-                2.8512917197076604e-05
-            ]
+            "name" : "Sea"
         },
         {
             "children" : [
                 15
             ],
-            "name" : "Sea.001",
-            "rotation" : [
-                -0.7071068286895752,
-                0,
-                0,
-                0.7071067094802856
-            ],
-            "translation" : [
-                -1.3877105712890625,
-                326.2240295410156,
-                14.920204162597656
-            ]
+            "name" : "Sea.001"
         },
         {
             "mesh" : 14,
@@ -1314,41 +1298,41 @@
         {
             "bufferView" : 87,
             "componentType" : 5126,
-            "count" : 457,
+            "count" : 615,
             "max" : [
-                864.6760864257812,
-                866.9886474609375,
-                -336.9647216796875
+                863.2883911132812,
+                -10.740509033203125,
+                859.8499755859375
             ],
             "min" : [
-                -847.242431640625,
-                -844.9298706054688,
-                -336.9647216796875
+                -848.630126953125,
+                -10.740753173828125,
+                -852.0681762695312
             ],
             "type" : "VEC3"
         },
         {
             "bufferView" : 88,
             "componentType" : 5126,
-            "count" : 457,
+            "count" : 615,
             "type" : "VEC3"
         },
         {
             "bufferView" : 89,
             "componentType" : 5126,
-            "count" : 457,
+            "count" : 615,
             "type" : "VEC2"
         },
         {
             "bufferView" : 90,
             "componentType" : 5126,
-            "count" : 457,
+            "count" : 615,
             "type" : "VEC2"
         },
         {
             "bufferView" : 91,
             "componentType" : 5123,
-            "count" : 639,
+            "count" : 762,
             "type" : "SCALAR"
         },
         {
@@ -1911,56 +1895,56 @@
         },
         {
             "buffer" : 0,
-            "byteLength" : 5484,
+            "byteLength" : 7380,
             "byteOffset" : 13573180,
             "target" : 34962
         },
         {
             "buffer" : 0,
-            "byteLength" : 5484,
-            "byteOffset" : 13578664,
+            "byteLength" : 7380,
+            "byteOffset" : 13580560,
             "target" : 34962
         },
         {
             "buffer" : 0,
-            "byteLength" : 3656,
-            "byteOffset" : 13584148,
+            "byteLength" : 4920,
+            "byteOffset" : 13587940,
             "target" : 34962
         },
         {
             "buffer" : 0,
-            "byteLength" : 3656,
-            "byteOffset" : 13587804,
+            "byteLength" : 4920,
+            "byteOffset" : 13592860,
             "target" : 34962
         },
         {
             "buffer" : 0,
-            "byteLength" : 1278,
-            "byteOffset" : 13591460,
+            "byteLength" : 1524,
+            "byteOffset" : 13597780,
             "target" : 34963
         },
         {
             "buffer" : 0,
             "byteLength" : 3132,
-            "byteOffset" : 13592740,
+            "byteOffset" : 13599304,
             "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 3132,
-            "byteOffset" : 13595872,
+            "byteOffset" : 13602436,
             "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 2088,
-            "byteOffset" : 13599004,
+            "byteOffset" : 13605568,
             "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 2520,
-            "byteOffset" : 13601092,
+            "byteOffset" : 13607656,
             "target" : 34963
         }
     ],
@@ -1972,7 +1956,7 @@
     ],
     "buffers" : [
         {
-            "byteLength" : 13603612,
+            "byteLength" : 13610176,
             "uri" : "scene.bin"
         }
     ]

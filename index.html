@@ -122,7 +122,7 @@
     var debugModePhoenixPath = DebugMode.off
     var nightMode = NightMode.on
     var fogMode = FogMode.linear
-    var antialias = AntialiasMode.on
+    var antialiasMode = AntialiasMode.on
     var shadowsMode = ShadowMode.on
     var lightsShadow = ShadowMode.on
     var skyMode = SkyMode.embedded
@@ -132,18 +132,22 @@
     var skyTime = SkyTime.day; 
     var boostEmissionLightMode = BoostEmissionLightMode.off;
     var sceneMode = SceneMode.on
-    var waterMode = WaterMode.on;
+    var waterMode = WaterMode.off;
     var particleMode = ParticleMode.off;
 
     var loading = true
 
+    var castle = [];
     var skybox;
     var skyEmbedded;
     var sea;
+
+    var floatingTarget;
     
     var sky;
     var sun;
     var water;
+    var liquidTween;
 
     var phoenix
     var phoenixTweens = [];
@@ -187,10 +191,11 @@
     const PHOENIX_EMISSIVE_VALUE = 0.1;
 
     //Renderer
-    const renderer = new THREE.WebGLRenderer({antialias: antialias}); 
+    const renderer = new THREE.WebGLRenderer({ antialias: antialiasMode }); 
     renderer.setSize( window.innerWidth, window.innerHeight ); 
     renderer.shadowMap.enabled = shadowsMode;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    //renderer.powerPreference = "high-performance"
     renderer.autoClear = false;
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.toneMapping = THREE.LinearToneMapping;
@@ -217,6 +222,8 @@
     controls.maxPolarAngle = THREE.MathUtils.degToRad(80); 
     //Must be called after any manual changes to the camera's transform
     controls.update() //mandatory
+    controls.addEventListener("change", () => renderer.render(scene, camera));
+
 
     //Scene setup
     placeFog(scene,fogMode)
@@ -230,11 +237,10 @@
     var boatGroup;
 
   //water
-    if (waterMode == WaterMode.on){
+    if (waterMode){
         sky = placeSky(scene);
         sun = placeSun(sky,scene);
         water = placeWater(scene, sun);
-        animateWater(water)
     }
 
     //Local light
@@ -242,10 +248,10 @@
     spotLight.position.set(0, 5, 1.4);
     spotLight.castShadow = lightsShadow;
     spotLight.penumbra = 0.05;
-    spotLight.intensity = 8;
-    spotLight.distance = 10;
+    spotLight.intensity = 14;
+    spotLight.distance = 6;
     spotLight.angle = 0.7;
-    spotLight.target = water; //target has to be added before this command
+    //spotLight.target = castle; //target has to be added before this command
     scene.add(spotLight);
     
     loadEnvironment()
@@ -270,6 +276,10 @@
                         console.log("Loading mesh: "+o.name);
                     }
                     if (o.name.toLowerCase() == "sky"){
+
+                        o.castShadow = false;
+                        o.receiveShadow = false;
+
                         skyEmbedded = o;
                         const text = skyTime == SkyTime.day ? "material_4_baseColor" : "material_4_baseColor_night";
                         const textureName = '3D/seaport/textures/'+text+'.jpg';
@@ -283,20 +293,40 @@
                     else if (o.name.toLowerCase() == "environment"){
                         const groundNormalTexture = new THREE.TextureLoader().load( '3D/seaport/textures/Environment_normal.png' , function ( texture ) {
                             o.material.normalMap = texture
-                            o.material.normalScale = new THREE.Vector3( 1, 1 );
+                            o.material.normalScale = new THREE.Vector3( 0.2, 0.2 );
                             o.material.needsUpdate = true;
                         });
+
+                        castle.push(o);
                     }
                     else if (o.name.toLowerCase() == "sea"){
+                        o.castShadow = false;
+                        o.receiveShadow = true;
+                        floatingTarget = waterMode ? water : o
                         sea = o;
+                        animateLiquid(o)
+                    }
+                    else if (o.name.toLowerCase() == "sand"){
+                        o.castShadow = false;
+                        o.receiveShadow = true;
+                       
+                    }
+                    else if (o.name.toLowerCase() == "base"){
+                        castle.push(o);
+                    }
+                    else if (o.name.toLowerCase() == "fortress"){
+                        castle.push(o);
                     }
                     else if (o.name.toLowerCase().includes("torch")){
                         placeTorchLight(o);
                     }
+
                     if (o.material.emissiveMap!=null && o.name == "Tower") {
                         if (debugMode){
                             console.log("Fixing emissive for: "+o.name);
                         }
+
+                        castle.push(o);
 
                         if (boostEmissionLightMode == BoostEmissionLightMode.on){
                             o.material.emissiveIntensity = WINDOWS_EMISSIVE_VALUE; //increase windows lights
@@ -333,7 +363,7 @@
         }
     }
 
-    function loadBoat(){
+    function loadBoat(target){
 
         if (boatGroup!=null){
             return
@@ -342,19 +372,17 @@
         const loader = new GLTFLoader();
 
         loader.load( '3D/boat/boat.gltf', function ( gltf ) {
+
             gltf.scene.scale.set(0.1, 0.1, 0.1);
             gltf.scene.position.set(5,0,-0.1);
+           
             gltf.scene.traverse((o) => {
                 if (o.isMesh) {
                     o.castShadow = true;
                     o.receiveShadow = true;
 
-                    if (debugMode){
-                        console.log("Loading mesh: "+o.name);
-                    }
-                  
                     if (o.name == "Torch"){
-                        placeTorchLight(o,true, false, 0, false, false); //parent, visible, animate, deltaZ, addmesh, addtotorches
+                        placeTorchLight(o,2, true, false, 0, false, false); //parent, intensity, visible, animate, deltaZ, addmesh, addtotorches
                         oscillateBoatTorch(o);
                     }
                     else if (o.name == "Body"){
@@ -395,21 +423,36 @@
             boatGroup = new THREE.Group();
             boatGroup.position.z = 0;
             boatGroup.rotation.y = Math.PI*3/2;
-            boatGroup.rotation.x = Math.PI / 2;
+
+            if (target == water) {
+                boatGroup.rotation.x = Math.PI / 2;
+                target.add( boatGroup );
+            }
+            else if (target == sea){
+                boatGroup.rotation.y = Math.PI / 2;
+                gltf.scene.rotation.y = THREE.MathUtils.degToRad(-120);
+                gltf.scene.position.set(-300,-15,300);
+                gltf.scene.scale.set(10, 10, 10);
+                target.add( boatGroup );
+            }
+            else if (target == null){
+                scene.add( boatGroup );
+            }
+
             boatGroup.add( gltf.scene );
 
-            if (water!=null) {
-                water.add( boatGroup );
+
+            if (debugMode){
+                console.log("Loading boatGroup: "+boatGroup.position);
             }
-            else if (sea!=null) {
-                sea.add(boatGroup);
-            }
+
         })
+
     }
 
     function endLoadingMeshes(){
 
-        placeFloatingObjects();
+        placeFloatingObjects(floatingTarget);
 
         if (particleMode){
             placeFireFlies()
@@ -448,6 +491,7 @@
 
             for (let tween of phoenixTweens){
                 tween.stop()
+                TWEEN.remove(tween)
             }
 
             phoenixTweens = []
@@ -634,10 +678,18 @@
             .start()
     }
 
-    function placeFloatingObjects(){
+    function removeFloatingObjects(){
+        floatingObjects.forEach(floating => {
+            floating.parent.remove(floating)
+        })
+
+        floatingObjects = []
+    }
+
+    function placeFloatingObjects(target){
 
         const geometry = new THREE.PlaneGeometry( 1, 1 );
-        const material = new THREE.MeshBasicMaterial( {color: 0x263529, side: THREE.DoubleSide, depthTest: true, transparent: true} );
+        const material = new THREE.MeshBasicMaterial( {color: 0x263529, side: THREE.DoubleSide,depthWrite: false, depthTest: true, transparent: true} );
 
         const textureName = 'Textures/leaf'+(Math.floor(Math.random() * 3) + 0)+'.png';
 
@@ -651,7 +703,7 @@
             var ranXNum = Math.ceil(Math.random() * 7) * (Math.round(Math.random()) ? 1 : -1)
             var ranYNum = Math.ceil(Math.random() * 7) * (Math.round(Math.random()) ? 1 : -1)
 
-            const pos = new THREE.Vector3(ranXNum,ranYNum,0.1)
+            const pos = new THREE.Vector3(ranXNum,0.01,ranYNum)
             leavesCoordPosition.push(pos);     
         }
     
@@ -662,22 +714,22 @@
             }
        
             const mesh = new THREE.Mesh( geometry, material );
-            mesh.rotation.z = Math.random() * Math.PI * 2; 
-            mesh.position.set(position.x,position.y,position.z);
-          
-            let s = Math.random() * 0.1 + 0.1;
+
+            mesh.rotation.z =  Math.random() * Math.PI * 2; 
+
+            mesh.rotation.x = target == water ? 0 : Math.PI/2;
+            
+            mesh.position.set(  position.x*(target == water ? 1 : 100),
+                                position.y,
+                                position.z*(target == water ? 1 : 100));
+            
+            let s = Math.random() *(target == water ? 0.1 : 30) + 0.1;
             mesh.scale.set(s, s, s);
             mesh.userData.delta = Math.random() * Math.PI * 2;
 
             floatingObjects.push(mesh);
         
-            if (water!=null){
-                water.add(mesh);
-            }
-            else {
-                sea.add(mesh)
-            }
-
+            target.add(mesh);
         });
 
     }
@@ -694,7 +746,7 @@
      
         totalTime+=deltaTime;
 
-        controls.update();
+        //controls.update();
 
         if (skyEmbedded!=null && skyEmbedded.visible) {
 
@@ -712,8 +764,15 @@
         }
 
         if (boatGroup!=null) {
-            boatGroup.rotation.y += 0.02*deltaTime;
-            boatGroup.position.z = Math.cos(totalTime)*0.05;
+            if (boatGroup.parent == water){
+                boatGroup.rotation.y += 0.02*deltaTime;
+                boatGroup.position.z = Math.cos(totalTime)*0.05;
+            }
+            else if (boatGroup.parent==sea) {
+             boatGroup.rotation.y += 0.02*deltaTime;
+             boatGroup.position.z = Math.cos(totalTime)*0.05;
+            }
+            
         }
 
         //Fireflies
@@ -782,9 +841,22 @@
         return water;
     }
 
-    function animateWater(water){
-        var tween = new TWEEN.Tween(water.position)
-            .to({y: 0.05}, 15000)
+    function animateLiquid(target){
+
+        if (liquidTween!=null){
+            TWEEN.remove(liquidTween)
+            liquidTween = null
+        }
+
+        if (debugMode){
+            console.log("Animating water: "+target.name)
+        }
+
+        liquidTween = new TWEEN.Tween(target.position)
+            .to({x: 0, 
+                 y : target == water ? 0.01 : 0, 
+                 z : target == water ? 0 : 15},
+            10000)
             // .delay (1000)
              .yoyo(true)
              .repeat(Infinity)
@@ -850,6 +922,7 @@
         cameraFolder.add(camera.rotation, 'z', -180, 180).name("RotZ").step(1).onChange((value) => {camera.rotation.z = THREE.MathUtils.degToRad(value);});
         if (opened) cameraFolder.open()
 
+    //Controls
         const controlsFolder = gui.addFolder('Controls')
         controlsFolder.add(controls, 'keyPanSpeed', 0, 50)
         controlsFolder.add(controls, 'panSpeed', 0, 50)
@@ -859,6 +932,7 @@
         controlsFolder.add(controls, 'autoRotateSpeed', 0, 50)
         if (opened) controlsFolder.open()
 
+    //Scene
         const sceneFolder = gui.addFolder("Scene")
 
         var skyTimeParams = {on: true};
@@ -919,11 +993,12 @@
                 }
 
                 spotLight.intensity = 40
+                spotLight.penumbra = 0.2
                 spotLight.color.setHex(0x6888d9)
 
                 placeFireFlies()
 
-                loadBoat()
+                loadBoat(floatingTarget)
 
                 removePhoenix()
 
@@ -931,8 +1006,10 @@
                 playerSeagull.pause()
                 playerSeagull.currentTime = 0
             }
-            else {
-                spotLight.intensity = 8
+            else { //day
+                spotLight.intensity = waterMode ? 20 : 15
+                spotLight.distance = 5
+                spotLight.penumbra = 0.05
 
                 spotLight.color.setHex(0xffffff)
                 ambientLight.color.setHex(0xffffff);
@@ -978,7 +1055,7 @@
             }
         })
 
-        //Fog
+    //Fog
         var fogButton = { fog:function(){ 
             let currentMode = fogMode;
             fogMode = currentMode == FogMode.none ? FogMode.linear : currentMode == FogMode.exp ? FogMode.none : FogMode.exp;
@@ -1007,9 +1084,27 @@
             }
         } );
         sceneFolder.add(renderer.shadowMap, 'enabled').name("Shadow map")
-        if (opened)  sceneFolder.open()
+        
+        var envParams = {on: true};
+        sceneFolder.add(envParams, 'on',).name("Buildings").onChange( function(value) {
+           castle.forEach(piece => {
+            piece.visible = value;
+           }
+        )});
 
-        //Ambient light
+        var boatParams = {on: true};
+        sceneFolder.add(boatParams, 'on',).name("Boat").onChange( function(value) {
+            value ? loadBoat(floatingTarget):removeBoat();
+        });
+
+        var phoenixParams = {on: true};
+        sceneFolder.add(phoenixParams, 'on',).name("Phoenix").onChange( function(value) {
+            value ? loadPhoenix(false) : removePhoenix();
+        });
+        
+        if (true)  sceneFolder.open()
+
+    //Ambient light
         const ambientLightFolder = gui.addFolder("Ambient light")
         ambientLightFolder.add(ambientLight,'visible').listen().name("Enabled");
         ambientLightFolder.add(ambientLight, 'intensity', 0, 100).name("Intensity").step(0.01)
@@ -1019,7 +1114,7 @@
         } );
         if (opened)  ambientLightFolder.open()
 
-        //Torches
+    //Torches
         const torchesFolder = gui.addFolder("Torches")
        
         //Torches lights
@@ -1100,12 +1195,31 @@
             
             const currentMode = waterMode;
 
-            waterMode = currentMode == WaterMode.off ? WaterMode.on : WaterMode.off;
+            waterMode = !currentMode;
 
-            water.visible = waterMode == WaterMode.on;
+            if (water==null && waterMode){
+                sky = placeSky(scene);
+                sun = placeSun(sky,scene);
+                water = placeWater(scene, sun);
+            }
+            else if (water !=null && !waterMode){
+                scene.remove(sky);
+                sky = null
+                scene.remove(sun);
+                sun = null
+                scene.remove(water);
+                water = null
+            }
+
+            sea.visible = !waterMode;
+
+            floatingTarget = waterMode ? water : sea
+
+            animateLiquid(floatingTarget)    
             
         }};
-        waterFolder.add(waterButton,'water').name("On / Off");
+        waterFolder.add(waterButton,'water').name("Sea On / Off");
+
         if (opened) waterFolder.open()
 
          //particles
@@ -1243,11 +1357,11 @@
 
         const sprite = textureLoader.load( '' );
 
-        for ( let i = 0; i < 200; i ++ ) {
+        for ( let i = 0; i < 100; i ++ ) {
 
-            const x = Math.random() * 15 - 7.5;
-            const y = Math.random() * 15 - 7.5;
-            const z = Math.random() * 15 - 7.5;
+            const x = Math.random() * 9 - 4.5;
+            const y = Math.random() * 9 - 4.5;
+            const z = Math.random() * 9 - 4.5;
 
             vertices.push( x, y, z );
         }
@@ -1255,8 +1369,9 @@
         geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
 
         particleParameters = [
-            [[ 1.0, 1.0, 1.0 ], sprite, 0.05 ],
-            [[ 0.86, 0.86, 0.67], sprite, 0.01]
+            [[ 1.0, 1.0, 1.0 ], sprite, 0.02 ],
+            [[ 0.86, 0.86, 0.67], sprite, 0.01],
+            [[ 0.3, 0.3, 0.3], sprite, 0.03 ],
         ];
 
         for ( let i = 0; i < particleParameters.length; i ++ ) {
@@ -1311,16 +1426,18 @@
         pass.enabled = status
     }
 
-    function placeTorchLight(father, visible = false, animate = false, deltaZ = 2, useMesh = true, addToTorchLights = true){
+    function placeTorchLight(father, intensity = 4, visible = false, animate = false, deltaZ = 2, useMesh = true, addToTorchLights = true){
 
         if (debugMode){
             console.log("Placing torch light as child of: "+father.name);
         }
 
-        const light = new THREE.PointLight( 0xf4ccbd, 2, 4 );
+        const light = new THREE.PointLight( 0xffffbb, intensity, 1 );
         light.visible = visible;
 
         var mesh;
+
+        father.add( light );
 
         if (useMesh){
             const sphere = new THREE.SphereGeometry( 3, 4, 2 );
@@ -1360,8 +1477,6 @@
         else {
             animateTorchLight(light,null, animate);
         }
-
-        father.add( light );
         
         light.position.z+=deltaZ;
 

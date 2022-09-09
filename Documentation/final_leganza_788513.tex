@@ -157,10 +157,12 @@ To set the color of the flame a custom shader was made, which interpolates betwe
 
 Leaves were created with a simple double side transparent plane, loading a random local stored leaf texture; their float around the scene with a simple Math.sin movement which starts from a random generated value written/readen using mesh userData in the animation loop.
 
+\begin{center}
 \begin{figure}[H]
   \includegraphics[width=0.5\textwidth]{leaves}
      \caption{The leaves on the surface}
 \end{figure}
+\end{center}
 
 \begin{verbatim}
   const geometry = new THREE.PlaneGeometry( 1, 1 );
@@ -208,6 +210,18 @@ Leaves were created with a simple double side transparent plane, loading a rando
 
         });
 \end{verbatim}
+
+\section{Fireflies}
+
+Fireflies were developed as simple squares of different sizes an colors embbeded inside a BufferGeometry with a PointsMaterial .
+
+\begin{center}
+\begin{figure}[H]
+  \includegraphics[width=0.5\textwidth]{fireflies}
+     \caption{Fireflies flying around the night scene}
+\end{figure}
+\end{center}
+
 
 \section{Animations}
 
