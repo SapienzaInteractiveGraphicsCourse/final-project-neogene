@@ -38,7 +38,6 @@
     import { EffectComposer } from  '/js/three/examples/jsm/postprocessing/EffectComposer.js';
     import { RenderPass } from      '/js/three/examples/jsm/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from '/js/three/examples/jsm/postprocessing/UnrealBloomPass.js';
-    import { BokehPass } from       '/js/three/examples/jsm/postprocessing/BokehPass.js';
     import { Water } from           '/js/three/examples/jsm/objects/Water.js';
     import { Sky } from             '/js/three/examples/jsm/objects/Sky.js';
 
@@ -851,11 +850,12 @@
         if (debugMode){
             console.log("Animating water: "+target.name)
         }
+        target.position.y = target == water ? -0.1 : 0;
 
         liquidTween = new TWEEN.Tween(target.position)
             .to({x: 0, 
-                 y : target == water ? 0.01 : 0, 
-                 z : target == water ? 0 : 15},
+                 y : target == water ? 0 : 20, 
+                 z : 0},
             10000)
             // .delay (1000)
              .yoyo(true)
@@ -1193,16 +1193,16 @@
         const waterFolder = gui.addFolder("Water")
         var waterButton = { water:function(){ 
             
-            const currentMode = waterMode;
-
-            waterMode = !currentMode;
+            waterMode = waterMode == WaterMode.on ? WaterMode.off : WaterMode.on;
 
             if (water==null && waterMode){
                 sky = placeSky(scene);
                 sun = placeSun(sky,scene);
                 water = placeWater(scene, sun);
+                water.name = "water"
             }
-            else if (water !=null && !waterMode){
+            
+            if (water !=null && !waterMode){
                 scene.remove(sky);
                 sky = null
                 scene.remove(sun);
@@ -1211,7 +1211,7 @@
                 water = null
             }
 
-            sea.visible = !waterMode;
+            sea.visible = waterMode == false;
 
             floatingTarget = waterMode ? water : sea
 
@@ -1255,11 +1255,6 @@
         fxFolder.add(possProcessingBloomParams,'on').name("Bloom").setValue(true).onChange( function(value) {
             enablePP(postProcessing.bloomPass,value)
         } );
-
-        var possProcessingDOFParams = {on: false};
-        fxFolder.add(possProcessingDOFParams,'on').name("DOF").setValue(false).onChange( function(value) {
-            enablePP(postProcessing.bokehPass,value)
-        } );
       
         //Bloom
         fxFolder.add( bloomParams, 'exposure', 0.1, 2 ).name("Bloom exp").onChange( function ( value ) {
@@ -1277,20 +1272,6 @@
 
         fxFolder.add( bloomParams, 'bloomRadius', 0.0, 1.0 ).name("Bloom radius").step( 0.01 ).onChange( function ( value ) {
             postProcessing.bloomPass.radius = Number( value );
-        } );
-
-        //Dof
-
-        fxFolder.add( bokehParams, 'focus', 0.1, 3000 ).name("Bokeh focus").step( 10 ).onChange( function ( value ) {
-           postProcessing.bokehPass.uniforms[ 'focus' ].value = Number( value );
-        } );
-
-        fxFolder.add( bokehParams, 'aperture', 0.0, 10.0 ).name("Bokeh aperture").step( 0.1 ).onChange( function ( value ) {
-            postProcessing.bokehPass.uniforms[ 'aperture' ].value = Number( value )* 0.00001;
-        } );
-
-        fxFolder.add( bokehParams, 'maxblur', 0.0, 0.01 ).name("Bokeh maxBlur").step( 0.001 ).onChange( function ( value ) {
-            postProcessing.bokehPass.uniforms[ 'maxblur' ].value = Number( value );
         } );
 
         if (opened) fxFolder.open()
@@ -1404,22 +1385,8 @@
         bloomPass.radius = bloomParams.bloomRadius;
         postProcessing.bloomPass = bloomPass;
 
-        const bokehPass = new BokehPass(scene, camera, {
-            focus: bokehParams.focus,
-            aperture: bokehParams.aperture,
-            maxblur: bokehParams.maxblur,
-            width: bokehParams.width,
-            height: bokehParams.height
-        });
-
-        bokehPass.renderToScreen = true;
-        bokehPass.enabled = false
-        postProcessing.bokehPass = bokehPass;
-
         composer.addPass( renderPass );
         composer.addPass( bloomPass );
-        composer.addPass( bokehPass );
-
     }
 
     function enablePP(pass, status){
