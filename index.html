@@ -112,27 +112,38 @@
         on: true
     }
 
-    //Needed to make raw animation code time indipentend
+    const FloatingMode = {
+        off : false,
+        on: true
+    }
+
+    const ClickgMode = {
+        off : false,
+        on: true
+    }
+
     var clock = new THREE.Clock();
     var deltaTime;
 
     //Settings
-    var debugMode = DebugMode.on
+    var debugMode = DebugMode.off
     var debugModePhoenixPath = DebugMode.off
     var nightMode = NightMode.on
     var fogMode = FogMode.linear
-    var antialiasMode = AntialiasMode.on
+    var antialiasMode = AntialiasMode.off
     var shadowsMode = ShadowMode.on
     var lightsShadow = ShadowMode.on
     var skyMode = SkyMode.embedded
     var grassMode = GrassMode.on
     var gui = GUIMode.on
-    var postProcessingMode = PostProcessingMode.on;
+    var postProcessingMode = PostProcessingMode.off;
     var skyTime = SkyTime.day; 
     var boostEmissionLightMode = BoostEmissionLightMode.off;
     var sceneMode = SceneMode.on
     var waterMode = WaterMode.off;
     var particleMode = ParticleMode.off;
+    var floatingMode = FloatingMode.on;
+    var clickMode = ClickgMode.off;
 
     var loading = true
 
@@ -146,6 +157,7 @@
     var sky;
     var sun;
     var water;
+    var waterUniforms;
     var liquidTween;
 
     var phoenix
@@ -190,12 +202,12 @@
     const PHOENIX_EMISSIVE_VALUE = 0.1;
 
     //Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: antialiasMode }); 
+    const renderer = new THREE.WebGLRenderer({ antialias: antialiasMode,powerPreference: "high-performance" }); 
     renderer.setSize( window.innerWidth, window.innerHeight ); 
     renderer.shadowMap.enabled = shadowsMode;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     //renderer.powerPreference = "high-performance"
-    renderer.autoClear = false;
+    renderer.autoClear = !postProcessingMode;
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.toneMapping = THREE.LinearToneMapping;
     document.body.appendChild( renderer.domElement );
@@ -208,7 +220,8 @@
     camera.far = 100;
     camera.position.y = 1.57;
     camera.position.z = 10;
-    
+    camera.updateProjectionMatrix();
+
     //Camera Controls
     const controls = new OrbitControls( camera, renderer.domElement );
     controls.keyPanSpeed = 10;
@@ -224,12 +237,12 @@
     controls.addEventListener("change", () => renderer.render(scene, camera));
 
 
-    //Scene setup
+//Scene setup
     placeFog(scene,fogMode)
 
     //Global light
     ambientLight = new THREE.AmbientLight(0xffffff)
-    ambientLight.intensity = 0.7;
+    ambientLight.intensity = 2;
     scene.add(ambientLight);
 
     //Boat
@@ -243,11 +256,11 @@
     }
 
     //Local light
-    spotLight = new THREE.SpotLight(0xd4d49c, 8);
+    spotLight = new THREE.SpotLight(0xd4d49c);
     spotLight.position.set(0, 5, 1.4);
     spotLight.castShadow = lightsShadow;
     spotLight.penumbra = 0.05;
-    spotLight.intensity = 14;
+    spotLight.intensity = 30;
     spotLight.distance = 6;
     spotLight.angle = 0.7;
     //spotLight.target = castle; //target has to be added before this command
@@ -270,6 +283,7 @@
                 if (o.isMesh) {
                     o.castShadow = true;
                     o.receiveShadow = true;
+                    o.matrixAutoUpdate = false
 
                     if (debugMode){
                         console.log("Loading mesh: "+o.name);
@@ -280,6 +294,7 @@
                         o.receiveShadow = false;
 
                         skyEmbedded = o;
+                        
                         const text = skyTime == SkyTime.day ? "material_4_baseColor" : "material_4_baseColor_night";
                         const textureName = '3D/seaport/textures/'+text+'.jpg';
 
@@ -290,7 +305,7 @@
                         skyEmbedded.visible = skyMode == SkyMode.embedded;
                     }
                     else if (o.name.toLowerCase() == "environment"){
-                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/seaport/textures/Environment_normal.png' , function ( texture ) {
+                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/seaport/textures/Environment_normal.jpg' , function ( texture ) {
                             o.material.normalMap = texture
                             o.material.normalScale = new THREE.Vector3( 0.2, 0.2 );
                             o.material.needsUpdate = true;
@@ -300,15 +315,15 @@
                     }
                     else if (o.name.toLowerCase() == "sea"){
                         o.castShadow = false;
-                        o.receiveShadow = true;
+                        o.receiveShadow = false;
                         floatingTarget = waterMode ? water : o
                         sea = o;
                         animateLiquid(o)
+                        o.matrixAutoUpdate = true
                     }
                     else if (o.name.toLowerCase() == "sand"){
                         o.castShadow = false;
                         o.receiveShadow = true;
-                       
                     }
                     else if (o.name.toLowerCase() == "base"){
                         castle.push(o);
@@ -316,8 +331,12 @@
                     else if (o.name.toLowerCase() == "fortress"){
                         castle.push(o);
                     }
+                    else if (o.name.toLowerCase() == "barrel"){
+                        castle.push(o);
+                    }
                     else if (o.name.toLowerCase().includes("torch")){
                         placeTorchLight(o);
+                        castle.push(o);
                     }
 
                     if (o.material.emissiveMap!=null && o.name == "Tower") {
@@ -385,7 +404,7 @@
                         oscillateBoatTorch(o);
                     }
                     else if (o.name == "Body"){
-                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/boat/textures/Image-Image_n.png' , function ( texture ) {
+                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/boat/textures/Image-Image_n.jpg' , function ( texture ) {
                             o.material.normalMap = texture
                             o.material.normalScale = new THREE.Vector3( 1, 1 );
 
@@ -395,7 +414,7 @@
                         });
                     }
                     else if (o.name == "Hull"){
-                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/boat/textures/Image_n.png' , function ( texture ) {
+                        const groundNormalTexture = new THREE.TextureLoader().load( '3D/boat/textures/Image_n.jpg' , function ( texture ) {
                             o.material.normalMap = texture
                             o.material.normalScale = new THREE.Vector3( 1, 1 );
 
@@ -698,7 +717,7 @@
         
         var leavesCoordPosition = [];
 
-        for (var i= 0; i <50;i++){
+        for (var i= 0; i <20; i++){
             var ranXNum = Math.ceil(Math.random() * 7) * (Math.round(Math.random()) ? 1 : -1)
             var ranYNum = Math.ceil(Math.random() * 7) * (Math.round(Math.random()) ? 1 : -1)
 
@@ -733,84 +752,6 @@
 
     }
 
-    //render loop
-    var totalTime = 0;
-    function animate() {
-
-        if (loading){
-            return
-        }
-
-        deltaTime = clock.getDelta();
-     
-        totalTime+=deltaTime;
-
-        //controls.update();
-
-        if (skyEmbedded!=null && skyEmbedded.visible) {
-
-            if(skyTime == SkyTime.day) {
-                skyEmbedded.material.map.offset.x -= 0.001*deltaTime; 
-            }
-            else {
-                skyEmbedded.material.map.offset.x -= 0.001*deltaTime; 
-                skyEmbedded.material.map.offset.y += 0.001*deltaTime; 
-            }
-        }
-        
-        if (water!=null) {
-            water.material.uniforms[ 'time' ].value += 0.1*deltaTime;
-        }
-
-        if (boatGroup!=null) {
-            if (boatGroup.parent == water){
-                boatGroup.rotation.y += 0.02*deltaTime;
-                boatGroup.position.z = Math.cos(totalTime)*0.05;
-            }
-            else if (boatGroup.parent==sea) {
-             boatGroup.rotation.y += 0.02*deltaTime;
-             boatGroup.position.z = Math.cos(totalTime)*0.05;
-            }
-            
-        }
-
-        //Fireflies
-        if (particlesEffects.length>0){
-            const time = Date.now() * 0.00001;
-            for ( let i = 0; i < particlesEffects.length; i ++ ) {
-                particlesEffects[i].rotation.y = time * ( i < 4 ? i + 1 : - ( i + 1 ) );
-            }
-
-            for ( let i = 0; i < particleMaterials.length; i ++ ) {
-
-                const color = particleParameters[ i ][ 0 ];
-
-                const h = ( 360 * ( color[ 0 ] + time ) % 360 ) / 360;
-                particleMaterials[ i ].color.setHSL( h, color[ 1 ], color[ 2 ] );
-
-            }
-        }
-
-        for (const torch of torchLights){
-            torch.mesh.material.uniforms["u_time"].value += deltaTime;
-        }
-       
-
-        //Phoenix animation
-        if (phoenix!=null) {
-            movePhoenixAroundPath(deltaTime*0.05);
-        }
-
-        //Leaves animation
-        floatingObjects.forEach(obj => {
-            obj.position.y+= Math.sin(obj.userData.delta + totalTime) * 0.001;
-        });
-
-        requestAnimationFrame( animate );
-        postProcessingMode ? postProcessing.composer.render(deltaTime) : renderer.render( scene, camera );
-        TWEEN.update();
-    }
-
     function placeWater(scene, sun) {
         const waterGeometry = new THREE.PlaneGeometry(20, 20);
         const water = new Water(
@@ -835,10 +776,13 @@
 
         scene.add(water);
         
-        const waterUniforms = water.material.uniforms;
+        waterUniforms = water.material.uniforms;
+
+        const waterTimeout = setTimeout(myGreeting, 100);
         
         return water;
     }
+
 
     function animateLiquid(target){
 
@@ -1092,6 +1036,13 @@
            }
         )});
 
+        var floatingParams = {on: floatingMode};
+        sceneFolder.add(floatingParams, 'on',).name("Leaves").onChange( function(value) {
+            floatingMode = value
+
+            floatingMode ? placeFloatingObjects(floatingTarget) : removeFloatingObjects()
+        });
+
         var boatParams = {on: true};
         sceneFolder.add(boatParams, 'on',).name("Boat").onChange( function(value) {
             value ? loadBoat(floatingTarget):removeBoat();
@@ -1207,6 +1158,7 @@
                 sky = null
                 scene.remove(sun);
                 sun = null
+                waterUniforms = []
                 scene.remove(water);
                 water = null
             }
@@ -1240,13 +1192,18 @@
 
         //post processing
         const fxFolder = gui.addFolder("Post processing")
-        var possProcessingParams = {post: true};
-        fxFolder.add(possProcessingParams,'post').name("Post processing").onChange( function(value) {
+        var possProcessingParams = {post: postProcessingMode};
+        fxFolder.add(possProcessingParams,'post').name("Post processing").setValue(postProcessingMode).onChange( function(value) {
             if (postProcessing.composer==null){
                 setupPostProcessing(renderer)
             }
 
             postProcessingMode =! postProcessingMode;
+
+            renderer.autoClear = !postProcessingMode
+
+            ambientLight.intensity = postProcessingMode? 2: 2
+            spotLight.intensity = postProcessingMode? 30 : 20
 
             console.log("clicked pp: "+postProcessingMode); 
         } );
@@ -1478,6 +1435,10 @@
     function onDocumentMouseDown( event ) {
         event.preventDefault();
        
+        if (clickMode){
+            return
+        }
+
         mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
         mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
        
@@ -1498,6 +1459,83 @@
             }
         }
     }
+
+//render loop
+     var totalTime = 0;
+    function animate() {
+
+        if (loading){
+            return
+        }
+
+        deltaTime = clock.getDelta();
+     
+        totalTime+=deltaTime;
+
+        //controls.update();
+
+        if (skyEmbedded!=null && skyEmbedded.visible) {
+
+            if(skyTime == SkyTime.day) {
+                skyEmbedded.material.map.offset.x -= 0.001*deltaTime; 
+            }
+            else {
+                skyEmbedded.material.map.offset.x -= 0.001*deltaTime; 
+                skyEmbedded.material.map.offset.y += 0.001*deltaTime; 
+            }
+        }
+        
+        if (waterUniforms!=null) {
+            waterUniforms[ 'time' ].value += 0.1*deltaTime;
+        }
+
+        if (boatGroup!=null) {
+            if (boatGroup.parent == water){
+                boatGroup.rotation.y += 0.02*deltaTime;
+                boatGroup.position.z = Math.cos(totalTime)*0.05;
+            }
+            else if (boatGroup.parent==sea) {
+             boatGroup.rotation.y += 0.02*deltaTime;
+             boatGroup.position.z = Math.cos(totalTime)*0.05;
+            } 
+        }
+
+        //Fireflies
+        if (particlesEffects.length>0){
+            const time = Date.now() * 0.00001;
+            for ( let i = 0; i < particlesEffects.length; i ++ ) {
+                particlesEffects[i].rotation.y = time * ( i < 4 ? i + 1 : - ( i + 1 ) );
+            }
+
+            for ( let i = 0; i < particleMaterials.length; i ++ ) {
+                const color = particleParameters[ i ][ 0 ];
+                const h = ( 360 * ( color[ 0 ] + time ) % 360 ) / 360;
+                particleMaterials[ i ].color.setHSL( h, color[ 1 ], color[ 2 ] );
+
+            }
+        }
+
+        //Torchlights  animation
+        for (const torch of torchLights){
+            torch.mesh.material.uniforms["u_time"].value += deltaTime;
+        }
+       
+        //Phoenix animation
+        if (phoenix!=null) {
+            movePhoenixAroundPath(deltaTime*0.05);
+        }
+
+        //Leaves animation
+        floatingObjects.forEach(obj => {
+            obj.position.y+= Math.sin(obj.userData.delta + totalTime) * 0.001;
+        });
+
+        requestAnimationFrame( animate );
+        !postProcessingMode ? renderer.render( scene, camera ) : postProcessing.composer.render(deltaTime);
+        TWEEN.update();
+    }
+
+//Window listener
 
     window.addEventListener( 'resize', onWindowResize );
     function onWindowResize() {

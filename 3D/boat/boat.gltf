@@ -1,8 +1,12 @@
 {
     "asset" : {
-        "generator" : "Khronos glTF Blender I/O v3.2.43",
+        "generator" : "Khronos glTF Blender I/O v3.3.27",
         "version" : "2.0"
     },
+    "extensionsUsed" : [
+        "KHR_materials_specular",
+        "KHR_materials_ior"
+    ],
     "scene" : 0,
     "scenes" : [
         {
@@ -70,6 +74,18 @@
             "emissiveTexture" : {
                 "index" : 0
             },
+            "extensions" : {
+                "KHR_materials_specular" : {
+                    "specularColorFactor" : [
+                        2.371357614441398,
+                        2.371357614441398,
+                        2.371357614441398
+                    ]
+                },
+                "KHR_materials_ior" : {
+                    "ior" : 1.4500000476837158
+                }
+            },
             "name" : "bypq_sl_boat01_08260933",
             "pbrMetallicRoughness" : {
                 "baseColorTexture" : {
@@ -80,6 +96,18 @@
         },
         {
             "doubleSided" : true,
+            "extensions" : {
+                "KHR_materials_specular" : {
+                    "specularColorFactor" : [
+                        2.371357614441398,
+                        2.371357614441398,
+                        2.371357614441398
+                    ]
+                },
+                "KHR_materials_ior" : {
+                    "ior" : 1.4500000476837158
+                }
+            },
             "name" : "bypq_sl_mutou01_08260933",
             "pbrMetallicRoughness" : {
                 "baseColorTexture" : {
@@ -149,9 +177,9 @@
     ],
     "images" : [
         {
-            "mimeType" : "image/png",
+            "mimeType" : "image/jpeg",
             "name" : "Image-Image_Emission",
-            "uri" : "textures/Image-Image_Emission.png"
+            "uri" : "textures/Image-Image_Emission.jpg"
         },
         {
             "mimeType" : "image/png",
@@ -272,62 +300,74 @@
         {
             "buffer" : 0,
             "byteLength" : 23760,
-            "byteOffset" : 0
+            "byteOffset" : 0,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 23760,
-            "byteOffset" : 23760
+            "byteOffset" : 23760,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 15840,
-            "byteOffset" : 47520
+            "byteOffset" : 47520,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 3960,
-            "byteOffset" : 63360
+            "byteOffset" : 63360,
+            "target" : 34963
         },
         {
             "buffer" : 0,
             "byteLength" : 1896,
-            "byteOffset" : 67320
+            "byteOffset" : 67320,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 1896,
-            "byteOffset" : 69216
+            "byteOffset" : 69216,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 1264,
-            "byteOffset" : 71112
+            "byteOffset" : 71112,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 456,
-            "byteOffset" : 72376
+            "byteOffset" : 72376,
+            "target" : 34963
         },
         {
             "buffer" : 0,
             "byteLength" : 3024,
-            "byteOffset" : 72832
+            "byteOffset" : 72832,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 3024,
-            "byteOffset" : 75856
+            "byteOffset" : 75856,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 2016,
-            "byteOffset" : 78880
+            "byteOffset" : 78880,
+            "target" : 34962
         },
         {
             "buffer" : 0,
             "byteLength" : 504,
-            "byteOffset" : 80896
+            "byteOffset" : 80896,
+            "target" : 34963
         }
     ],
     "samplers" : [
