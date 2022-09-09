@@ -136,7 +136,7 @@
     var waterMode = WaterMode.off;
     var particleMode = ParticleMode.off;
     var floatingMode = FloatingMode.on;
-    var clickMode = ClickgMode.off;
+    var clickMode = ClickgMode.on;
 
     var loading = true
 
@@ -218,7 +218,7 @@
                 if (o.isMesh) {
                     o.castShadow = true;
                     o.receiveShadow = true;
-                    o.matrixAutoUpdate = false
+                    //o.matrixAutoUpdate = false
 
                     if (debugMode){
                         console.log("Loading mesh: "+o.name);
@@ -243,13 +243,15 @@
                         const groundNormalTexture = new THREE.TextureLoader().load( '3D/seaport/textures/Environment_normal.jpg' , function ( texture ) {
                             o.material.normalMap = texture
                             o.material.normalScale = new THREE.Vector3( 0.2, 0.2 );
+                            o.material.transparent = false
                             o.material.needsUpdate = true;
+
                         });
 
                         castle.push(o);
                     }
                     else if (o.name.toLowerCase() == "sea"){
-                        o.matrixAutoUpdate = true
+                        //o.matrixAutoUpdate = true
                         o.castShadow = false;
                         o.receiveShadow = false;
                         floatingTarget = waterMode ? water : o
@@ -259,27 +261,33 @@
                     else if (o.name.toLowerCase() == "sand"){
                         o.castShadow = false;
                         o.receiveShadow = true;
+                        o.material.transparent = false
                     }
                     else if (o.name.toLowerCase() == "base"){
                         castle.push(o);
+                        o.material.transparent = false
                     }
-                    else if (o.name.toLowerCase() == "fortress"){
+                    else if (o.name.toLowerCase().includes("fortress")){
+                        o.material.transparent = false
                         castle.push(o);
                     }
                     else if (o.name.toLowerCase().includes("barrel")){
+                        o.material.transparent = false
                         castle.push(o);
                     }
                     else if (o.name.toLowerCase().includes("torch")){
-                        o.matrixAutoUpdate = true
+                       // o.matrixAutoUpdate = true
                         placeTorchLight(o);
-                        o.matrixAutoUpdate = true
-                        //castle.push(o);
+                       // o.matrixAutoUpdate = true
+                        castle.push(o);
                     }
 
                     if (o.material.emissiveMap!=null && o.name == "Tower") {
                         if (debugMode){
                             console.log("Fixing emissive for: "+o.name);
                         }
+
+                        o.material.transparent = false
 
                         castle.push(o);
 
@@ -337,7 +345,7 @@
                     o.receiveShadow = true;
 
                     if (o.name.toLowerCase().includes("torch")){
-                        placeTorchLight(o, 4, 1, true, false, 0, false, false); //parent, intensity, decay, visible, animate, deltaZ, addmesh, addtotorches
+                        placeTorchLight(o, true, 4, 1, false, 0, false, false); //parent, intensity, decay, animate, deltaZ, addmesh, addtotorches
                         oscillateBoatTorch(o);
                     }
                     else if (o.name == "Body"){
@@ -1280,14 +1288,14 @@
         pass.enabled = status
     }
 
-    function placeTorchLight(father, intensity = 4, decay = 1, visible = false, animate = false, deltaZ = 0, useMesh = true, addToTorchLights = true){
+    function placeTorchLight(father, visible = false, intensity = 4, decay = 1, animate = false, deltaZ = 3, useMesh = true, addToTorchLights = true){
 
         if (true){
             console.log("Placing torch light as child of: "+father.name);
         }
 
-        const light = new THREE.PointLight( 0xffffbb, intensity, decay ); 
-
+        const light = new THREE.PointLight( 0xffffbb, intensity, decay );
+        light.visible = visible 
         father.add( light );
 
         if (useMesh){
@@ -1304,11 +1312,11 @@
                     void main() {
                         vUv = uv;
 
-                        mat4 sPos = mat4(vec4(1.0+sin(u_time)*0.1,0.0,0.0,0.0),
+                        mat4 scale = mat4(vec4(1.0+sin(u_time)*0.1,0.0,0.0,0.0),
                                         vec4(0.0,1.0+sin(u_time)*0.3,0.0,0.0),
                                         vec4(0.0,0.0,1.0+sin(u_time)*0.5,0.0),
                                         vec4(0.0,0.0,0.0,1.0));
-                        gl_Position = projectionMatrix * modelViewMatrix * sPos * vec4(position,1.0);
+                        gl_Position = projectionMatrix * modelViewMatrix * scale * vec4(position,1.0);
                     }
                 `,
                 fragmentShader: `
@@ -1332,7 +1340,7 @@
             animateTorchLight(light,null, animate);
         }
         
-        //light.position.z+=deltaZ;
+        light.position.z+=deltaZ;
 
         //Used to hide the light on click o the mesh 
         father.callback = function() { 
@@ -1364,7 +1372,7 @@
     function onDocumentMouseDown( event ) {
         event.preventDefault();
        
-        if (clickMode){
+        if (!clickMode){
             return
         }
 
@@ -1380,7 +1388,7 @@
         const intersects = raycaster.intersectObjects( scene.children );
        
         if ( intersects.length > 0 ) {
-            if (debugMode && intersects[0].object.name != null){
+            if (intersects[0].object.name != null){
                 console.log("Clicked on: "+intersects[0].object.name);
             }
             if (typeof(intersects[0].object.callback) == 'function'){
