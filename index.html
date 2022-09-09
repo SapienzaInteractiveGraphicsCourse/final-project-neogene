@@ -72,11 +72,6 @@
         on  : true
     }
 
-    const GrassMode = {
-        off : false,
-        on  : true
-    }
-
     const GUIMode = {
         off : false,
         on  : true
@@ -134,7 +129,6 @@
     var shadowsMode = ShadowMode.on
     var lightsShadow = ShadowMode.on
     var skyMode = SkyMode.embedded
-    var grassMode = GrassMode.on
     var gui = GUIMode.on
     var postProcessingMode = PostProcessingMode.off;
     var skyTime = SkyTime.day; 
@@ -294,7 +288,7 @@
                         o.receiveShadow = false;
 
                         skyEmbedded = o;
-                        
+
                         const text = skyTime == SkyTime.day ? "material_4_baseColor" : "material_4_baseColor_night";
                         const textureName = '3D/seaport/textures/'+text+'.jpg';
 
