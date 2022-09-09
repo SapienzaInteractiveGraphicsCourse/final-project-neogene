@@ -218,7 +218,7 @@
                 if (o.isMesh) {
                     o.castShadow = true;
                     o.receiveShadow = true;
-                    //o.matrixAutoUpdate = false
+                    o.matrixAutoUpdate = false
 
                     if (debugMode){
                         console.log("Loading mesh: "+o.name);
@@ -251,7 +251,7 @@
                         castle.push(o);
                     }
                     else if (o.name.toLowerCase() == "sea"){
-                        //o.matrixAutoUpdate = true
+                        o.matrixAutoUpdate = true
                         o.castShadow = false;
                         o.receiveShadow = false;
                         floatingTarget = waterMode ? water : o
@@ -276,9 +276,7 @@
                         castle.push(o);
                     }
                     else if (o.name.toLowerCase().includes("torch")){
-                       // o.matrixAutoUpdate = true
                         placeTorchLight(o);
-                       // o.matrixAutoUpdate = true
                         castle.push(o);
                     }
 
