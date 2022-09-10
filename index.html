@@ -276,6 +276,7 @@
                         castle.push(o);
                     }
                     else if (o.name.toLowerCase().includes("torch")){
+                        o.matrixAutoUpdate = true
                         placeTorchLight(o);
                         castle.push(o);
                     }
