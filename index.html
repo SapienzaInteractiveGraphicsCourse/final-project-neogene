@@ -5,16 +5,16 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Andrea Leganza - 788513</title>
-    <script src="./final-project-neogene/js/tween/tween.umd.js"></script>
+    <script src="./js/tween/tween.umd.js"></script>
     <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
     <script type="importmap">
         {
             "imports": {
-                "three": "./final-project-neogene/js/three/three.module.js",
-                "three/addons/": "./final-project-neogene/js/three/examples/jsm/",
-                "three/post/": "./final-project-neogene/js/three/examples/js/postProcessing/",
-                "GUI": "./final-project-neogene/Libs/datgui/dat.gui.module.js",
-                "OrbitControls": "./final-project-neogene/js/three/examples/jsm/controls/OrbitControls.js"
+                "three": "./js/three/three.module.js",
+                "three/addons/": "/js/three/examples/jsm/",
+                "three/post/": "/js/three/examples/js/postProcessing/",
+                "GUI": "./Libs/datgui/dat.gui.module.js",
+                "OrbitControls": "/js/three/examples/jsm/controls/OrbitControls.js"
             }
         }
     </script>
@@ -29,8 +29,8 @@
 <script type="module">
 
     import * as THREE from 'three';
-    import Stats from './final-project-neogene/js/three/examples/jsm/libs/stats.module.js';
-    import { GLTFLoader } from './final-project-neogenethree/addons/loaders/GLTFLoader.js';
+    import Stats from './js/three/examples/jsm/libs/stats.module.js';
+    import { GLTFLoader } from './three/addons/loaders/GLTFLoader.js';
     import { OrbitControls } from 'OrbitControls';
     import { GUI } from 'GUI'
 
@@ -1704,18 +1704,18 @@ const tween = new TWEEN.Tween(mesh.position)
 
 </script> 
 <audio id="audioPlayer" autoplay loop>
-    <source src="/final-project-neogene//audio/sea.ogg" type="audio/ogg">
-    <embed src="/final-project-neogene//audio/sea.mp3" autostart="true" loop="true" hidden="true"> 
+    <source src="./audio/sea.ogg" type="audio/ogg">
+    <embed src="./audio/sea.mp3" autostart="true" loop="true" hidden="true"> 
 </audio>
 
 <audio id="audioSeagullPlayer" autoplay loop>
-    <source src="/final-project-neogene//audio/seagull.ogg" type="audio/ogg">
-    <embed src="/final-project-neogene//audio/seagull.mp3" autostart="true" loop="true" hidden="true"> 
+    <source src="./audio/seagull.ogg" type="audio/ogg">
+    <embed src="./audio/seagull.mp3" autostart="true" loop="true" hidden="true"> 
 </audio>
 
 <audio id="audioCricketsPlayer" loop>
-    <source src="/final-project-neogene//audio/crickets.ogg" type="audio/ogg">
-    <embed src="/final-project-neogene//audio/crickets.mp3" autostart="true" loop="true" hidden="true"> 
+    <source src="./audio/crickets.ogg" type="audio/ogg">
+    <embed src="./audio/crickets.mp3" autostart="true" loop="true" hidden="true"> 
 </audio>
 </body>
 </html>
