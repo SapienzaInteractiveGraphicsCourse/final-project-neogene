@@ -591,6 +591,7 @@
             crabGroup.add( gltf.scene );
             crab.lookAt(camera.position)
             scene.add( crabGroup );
+            
         })
     }
 
@@ -1532,7 +1533,7 @@ const tween = new TWEEN.Tween(mesh.position)
        
         if ( intersects.length > 0 ) {
             if (intersects[0].object.name != null){
-                console.log("Clicked on: "+intersects[0].object.name);
+                console.log("Clicked on: "+intersects[0].object.name +" "+ intersects[0].object);
             }
             if (typeof(intersects[0].object.callback) == 'function'){
                 intersects[0].object.callback();
