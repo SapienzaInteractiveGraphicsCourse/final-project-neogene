@@ -1179,7 +1179,7 @@ const tween = new TWEEN.Tween(mesh.position)
         
 
         var torchLightIntensityParams = {torchintensity: 4};
-        torchesFolder.add(torchLightIntensityParams, 'torchintensity', 0, 100).setValue(4).name("Torches intensity").step(0.01).onChange( function(value) {
+        torchesFolder.add(torchLightIntensityParams, 'torchintensity', 0, 100).setValue(4).name("Intensity").step(0.01).onChange( function(value) {
             for (const torch of torchLights){
                 torch.light.intensity = value;
             }
