@@ -10,11 +10,11 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "./js/three/three.module.js",
-                "three/addons/": "./js/three/examples/jsm/",
-                "three/post/": "./js/three/examples/js/postProcessing/",
-                "GUI": "./Libs/datgui/dat.gui.module.js",
-                "OrbitControls": "./js/three/examples/jsm/controls/OrbitControls.js"
+                "three": "./final-project-neogene/js/three/three.module.js",
+                "three/addons/": "./final-project-neogene/js/three/examples/jsm/",
+                "three/post/": "./final-project-neogene/js/three/examples/js/postProcessing/",
+                "GUI": "./final-project-neogene/Libs/datgui/dat.gui.module.js",
+                "OrbitControls": ./final-project-neogene/js/three/examples/jsm/controls/OrbitControls.js"
             }
         }
     </script>
@@ -29,16 +29,16 @@
 <script type="module">
 
     import * as THREE from 'three';
-    import Stats from './js/three/examples/jsm/libs/stats.module.js';
-    import { GLTFLoader } from './three/addons/loaders/GLTFLoader.js';
+    import Stats from './final-project-neogene/js/three/examples/jsm/libs/stats.module.js';
+    import { GLTFLoader } from './final-project-neogene/three/addons/loaders/GLTFLoader.js';
     import { OrbitControls } from 'OrbitControls';
     import { GUI } from 'GUI'
 
-    import { EffectComposer } from  './js/three/examples/jsm/postprocessing/EffectComposer.js';
-    import { RenderPass } from      './js/three/examples/jsm/postprocessing/RenderPass.js';
-    import { UnrealBloomPass } from './js/three/examples/jsm/postprocessing/UnrealBloomPass.js';
-    import { Water } from           './js/three/examples/jsm/objects/Water.js';
-    import { Sky } from             './js/three/examples/jsm/objects/Sky.js';
+    import { EffectComposer } from  './final-project-neogene/js/three/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from      './final-project-neogene/js/three/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from './final-project-neogene/js/three/examples/jsm/postprocessing/UnrealBloomPass.js';
+    import { Water } from           './final-project-neogene/js/three/examples/jsm/objects/Water.js';
+    import { Sky } from             './final-project-neogene/js/three/examples/jsm/objects/Sky.js';
 
     const FogMode = {
         none : 0,
