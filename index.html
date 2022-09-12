@@ -156,6 +156,10 @@
     var phoenix
     var phoenixTweens = [];
     var phoenixGroup;
+
+    var crab
+    var crabTweens = [];
+    var crabGroup;
     
     var floatingObjects = [];
 
@@ -308,6 +312,7 @@
 
             loadPhoenix()
 
+
         }, undefined, function ( error ) {
 
             console.error( error );
@@ -319,15 +324,17 @@
 
     function removeBoat(){
         if (boatGroup!=null){
-            scene.remove(boatGroup.children)
-            boatGroup.parent.remove(boatGroup);
-            boatGroup = null
+            boatGroup.visible = false
+            //scene.remove(boatGroup.children)
+            //boatGroup.parent.remove(boatGroup);
+            //boatGroup = null
         }
     }
 
     function loadBoat(target){
 
         if (boatGroup!=null){
+            boatGroup.visible = true
             return
         }
 
@@ -344,7 +351,7 @@
                     o.receiveShadow = true;
 
                     if (o.name.toLowerCase().includes("torch")){
-                        placeTorchLight(o, true, 4, 1, false, 0, false, false); //parent, intensity, decay, animate, deltaZ, addmesh, addtotorches
+                        placeTorchLight(o, true, 4, 1, false, 0, false, 1, false); //parent, intensity, decay, animate, deltaZ, addmesh,  distance, addtotorches
                         oscillateBoatTorch(o);
                     }
                     else if (o.name == "Body"){
@@ -403,7 +410,6 @@
 
             boatGroup.add( gltf.scene );
 
-
             if (debugMode){
                 console.log("Loading boatGroup: "+boatGroup.position);
             }
@@ -440,8 +446,14 @@
 
     function removePhoenix(){
         if (phoenixGroup!=null){
+
+            phoenixGroup.visible = false
+
+            for (let tween of phoenixTweens){
+                tween.stop()
+            }
             
-            phoenixGroup.parent.remove(phoenixGroup)
+            /*phoenixGroup.parent.remove(phoenixGroup)
             
             if (phoenix!=null){
                 phoenix.parent.remove(phoenix)
@@ -457,12 +469,18 @@
             }
 
             phoenixTweens = []
+            */
         }
     }
 
     function loadPhoenix(firstLoad = true){
 
         if (phoenix!=null || phoenixGroup!=null){
+            phoenixGroup.visible = true
+
+            for (let tween of phoenixTweens){
+                tween.start()
+            }
             return
         }
 
@@ -480,7 +498,7 @@
                         console.log("Loading mesh: "+o.name + " data (axis: "+o.userData.axis+" prop: "+o.userData.prop+")");
                     }
 
-                    if (o.userData.axis!=null){
+                    if (o.userData.axis!=null && o.userData.prop!=0){
                         animatePhoenixMesh(o,o.userData.axis,o.userData.prop, o.userData.delay, o.userData.easing)
                     }
 
@@ -510,6 +528,69 @@
             if (firstLoad){
                 endLoadingMeshes();
             }
+        })
+    }
+
+//Crab
+    function remoteCrab(){
+        if (crabGroup!=null){
+            //scene.remove(crabGroup.children)
+            //crabGroup.parent.remove(crabGroup);
+            //crabGroup = null
+            crabGroup.visible = false
+
+            for (let tween of crabTweens){
+                tween.stop()
+            }
+            
+        }
+    }
+
+    function loadCrab(){
+
+        if (crab!=null || crabGroup!=null){
+            crabGroup.visible = true
+
+            for (let tween of crabTweens){
+                tween.start()
+            }
+
+            return
+        }
+
+        const loader = new GLTFLoader();
+
+        loader.load( '3D/crab/crab.gltf', function ( gltf ) {
+            gltf.scene.position.set(-0.3,0.25,1.5);
+            gltf.scene.rotation.set(0,-Math.PI/4,0);
+            gltf.scene.traverse((o) => {
+                if (o.isMesh) {
+                    o.castShadow = false;
+                    o.receiveShadow = false;
+
+                    if (debugMode){
+                        console.log("Loading mesh: "+o.name + " data (axis: "+o.userData.axis+" prop: "+o.userData.prop+")");
+                    }
+
+                    if (o.userData.axis!=null && o.userData.prop!=0){
+                        animateCrabMesh(o,o.userData.axis,o.userData.prop, o.userData.delay, o.userData.easing, o.userData.speed != null ? o.userData.speed : 1)
+                    }
+
+                    if (o.name.toLowerCase().includes("eye")){
+                       
+                    }
+                }
+            }
+            )
+            
+            crab = gltf.scene.getObjectByName("Crab");
+
+            animateCrabBodyMesh(crab)
+
+            crabGroup = new THREE.Group();
+            crabGroup.add( gltf.scene );
+            crab.lookAt(camera.position)
+            scene.add( crabGroup );
         })
     }
 
@@ -569,11 +650,53 @@
             /*.onUpdate(function () {
               
             })*/
+            
             .start()
 
         phoenixTweens.push(tween)
     
     }
+
+function animateCrabMesh(mesh, axis, delta, delay, easing, speed = 1){
+
+if (debugMode){
+    console.log("Animating crab: "+mesh.name);
+}
+
+const tween = new TWEEN.Tween(mesh.rotation)
+    .to({[axis]:mesh.rotation[axis] + 0.2*delta},1000*speed)
+    .yoyo(true)
+    .delay(delay != null ? delay*1000 : 0)
+    .repeat(Infinity)
+    .easing(easing != null ? (easing == 1 ? TWEEN.Easing.Linear.None : TWEEN.Easing.Quadratic.InOut) : TWEEN.Easing.Linear.None)
+    /*.onUpdate(function () {
+      
+    })*/
+    .start()
+
+    crabTweens.push(tween)
+
+}
+
+function animateCrabBodyMesh(mesh){
+
+if (debugMode){
+    console.log("Animating crab: "+mesh.name);
+}
+
+const tween = new TWEEN.Tween(mesh.position)
+    .to({x:mesh.position.x + 0.2},1000)
+    .yoyo(true)
+    .repeat(Infinity)
+    .easing(TWEEN.Easing.Linear.None)
+    /*.onUpdate(function () {
+      
+    })*/
+    .start()
+
+    crabTweens.push(tween)
+
+}
 
     function movePhoenixAroundPath(delta) {
         if (counter <= 1) {
@@ -628,6 +751,16 @@
     }
 
     function removeFloatingObjects(){
+
+        if (floatingObjects.length>0){
+            
+            for (const fl of floatingObjects ){
+                fl.visible = true
+            }
+
+            return
+        }
+
         floatingObjects.forEach(floating => {
             floating.parent.remove(floating)
         })
@@ -636,6 +769,13 @@
     }
 
     function placeFloatingObjects(target){
+
+        if (floatingObjects.length>0){
+            for (const fl of floatingObjects ){
+                fl.visible = false
+            }
+            return
+        }
 
         const geometry = new THREE.PlaneGeometry( 1, 1 );
         const material = new THREE.MeshBasicMaterial( {color: 0x263529, side: THREE.DoubleSide,depthWrite: false, depthTest: true, transparent: true} );
@@ -875,6 +1015,7 @@
                 placeFireFlies()
 
                 loadBoat(floatingTarget)
+                loadCrab()
 
                 playerCrickets.play()
                 playerSeagull.pause()
@@ -907,6 +1048,8 @@
                 removeFireFlies()
 
                 removeBoat()
+
+                remoteCrab()
 
                 loadPhoenix(false)
 
@@ -1243,8 +1386,8 @@
         geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
 
         particleParameters = [
-            [[ 1.0, 1.0, 1.0 ], sprite, 0.02 ],
-            [[ 0.86, 0.86, 0.67], sprite, 0.01],
+            [[ 1.0, 1.0, 1.0 ], sprite, 0.05 ],
+            [[ 0.86, 0.86, 0.67], sprite, 0.02],
             [[ 0.3, 0.3, 0.3], sprite, 0.03 ],
         ];
 
@@ -1287,7 +1430,7 @@
         pass.enabled = status
     }
 
-    function placeTorchLight(father, visible = false, intensity = 4, decay = 1, animate = false, deltaZ = 3, useMesh = true, addToTorchLights = true){
+    function placeTorchLight(father, visible = false, intensity = 8, decay = 1, animate = false, deltaZ = 3, useMesh = true, distance = 0.3, addToTorchLights = true){
 
         if (true){
             console.log("Placing torch light as child of: "+father.name);
@@ -1295,6 +1438,7 @@
 
         const light = new THREE.PointLight( 0xffffbb, intensity, decay );
         light.visible = visible 
+        light.distance = distance
         father.add( light );
 
         if (useMesh){
@@ -1467,6 +1611,10 @@
         floatingObjects.forEach(obj => {
             obj.position.y+= Math.sin(obj.userData.delta + totalTime) * 0.001;
         });
+
+        //Crab
+        if (crab!=null)
+        crab.lookAt(camera.position)
 
         requestAnimationFrame( animate );
         !postProcessingMode ? renderer.render( scene, camera ) : postProcessing.composer.render(deltaTime);
