@@ -10,11 +10,11 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/three.module.js",
-                "three/addons/": "https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/examples/jsm/",
-                "three/post/": "https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/examples/js/postProcessing/",
-                "GUI": "https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/Libs/datgui/dat.gui.module.js",
-                "OrbitControls": https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/jsm/controls/OrbitControls.js"
+                "three": "/final-project-neogene/js/three/three.module.js",
+                "three/addons/": "/final-project-neogene/js/three/examples/jsm/",
+                "three/post/": "/final-project-neogene/js/three/examples/js/postProcessing/",
+                "GUI": "/final-project-neogene/Libs/datgui/dat.gui.module.js",
+                "OrbitControls": /final-project-neogene/jsm/controls/OrbitControls.js"
             }
         }
     </script>
@@ -29,16 +29,16 @@
 <script type="module">
 
     import * as THREE from 'three';
-    import Stats from 'https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/jsm/libs/stats.module.js';
-    import { GLTFLoader } from 'https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/js/addons/loaders/GLTFLoader.js';
+    import Stats from '/final-project-neogene/js/three/jsm/libs/stats.module.js';
+    import { GLTFLoader } from '/final-project-neogene/js/three/js/addons/loaders/GLTFLoader.js';
     import { OrbitControls } from 'OrbitControls';
     import { GUI } from 'GUI'
 
-    import { EffectComposer } from  'https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/jsm/postprocessing/EffectComposer.js';
-    import { RenderPass } from      'https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/jsm/postprocessing/RenderPass.js';
-    import { UnrealBloomPass } from 'https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/jsm/postprocessing/UnrealBloomPass.js';
-    import { Water } from           'https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/jsm/objects/Water.js';
-    import { Sky } from             'https://sapienzainteractivegraphicscourse.github.io/final-project-neogene/js/three/jsm/objects/Sky.js';
+    import { EffectComposer } from  '/final-project-neogene/js/three/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from      '/final-project-neogene/js/three/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from '/final-project-neogene/js/three/jsm/postprocessing/UnrealBloomPass.js';
+    import { Water } from           '/final-project-neogene/js/three/jsm/objects/Water.js';
+    import { Sky } from             '/final-project-neogene/js/three/jsm/objects/Sky.js';
 
     const FogMode = {
         none : 0,
