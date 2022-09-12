@@ -14,7 +14,7 @@
                 "three/addons/": "/final-project-neogene/js/three/examples/jsm/",
                 "three/post/": "/final-project-neogene/js/three/examples/js/postProcessing/",
                 "GUI": "/final-project-neogene/Libs/datgui/dat.gui.module.js",
-                "OrbitControls": /final-project-neogene/jsm/controls/OrbitControls.js"
+                "OrbitControls": "/final-project-neogene/js/three/examples/jsm/controls/OrbitControls.js"
             }
         }
     </script>
@@ -29,16 +29,16 @@
 <script type="module">
 
     import * as THREE from 'three';
-    import Stats from '/final-project-neogene/js/three/jsm/libs/stats.module.js';
-    import { GLTFLoader } from '/final-project-neogene/js/three/js/addons/loaders/GLTFLoader.js';
+    import Stats from '/final-project-neogene/js/three/examples/jsm/libs/stats.module.js';
+    import { GLTFLoader } from '/final-project-neogenethree/addons/loaders/GLTFLoader.js';
     import { OrbitControls } from 'OrbitControls';
     import { GUI } from 'GUI'
 
-    import { EffectComposer } from  '/final-project-neogene/js/three/jsm/postprocessing/EffectComposer.js';
-    import { RenderPass } from      '/final-project-neogene/js/three/jsm/postprocessing/RenderPass.js';
-    import { UnrealBloomPass } from '/final-project-neogene/js/three/jsm/postprocessing/UnrealBloomPass.js';
-    import { Water } from           '/final-project-neogene/js/three/jsm/objects/Water.js';
-    import { Sky } from             '/final-project-neogene/js/three/jsm/objects/Sky.js';
+    import { EffectComposer } from  '/js/three/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from      '/js/three/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from '/js/three/examples/jsm/postprocessing/UnrealBloomPass.js';
+    import { Water } from           '/js/three/examples/jsm/objects/Water.js';
+    import { Sky } from             '/js/three/examples/jsm/objects/Sky.js';
 
     const FogMode = {
         none : 0,
@@ -1704,18 +1704,18 @@ const tween = new TWEEN.Tween(mesh.position)
 
 </script> 
 <audio id="audioPlayer" autoplay loop>
-    <source src="/final-project-neogene/audio/sea.ogg" type="audio/ogg">
-    <embed src="/final-project-neogene/audio/sea.mp3" autostart="true" loop="true" hidden="true"> 
+    <source src="/final-project-neogene//audio/sea.ogg" type="audio/ogg">
+    <embed src="/final-project-neogene//audio/sea.mp3" autostart="true" loop="true" hidden="true"> 
 </audio>
 
 <audio id="audioSeagullPlayer" autoplay loop>
-    <source src="/final-project-neogene/audio/seagull.ogg" type="audio/ogg">
-    <embed src="/final-project-neogene/audio/seagull.mp3" autostart="true" loop="true" hidden="true"> 
+    <source src="/final-project-neogene//audio/seagull.ogg" type="audio/ogg">
+    <embed src="/final-project-neogene//audio/seagull.mp3" autostart="true" loop="true" hidden="true"> 
 </audio>
 
 <audio id="audioCricketsPlayer" loop>
-    <source src="/final-project-neogene/audio/crickets.ogg" type="audio/ogg">
-    <embed src="/final-project-neogene/audio/crickets.mp3" autostart="true" loop="true" hidden="true"> 
+    <source src="/final-project-neogene//audio/crickets.ogg" type="audio/ogg">
+    <embed src="/final-project-neogene//audio/crickets.mp3" autostart="true" loop="true" hidden="true"> 
 </audio>
 </body>
 </html>
