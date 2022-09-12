@@ -1532,12 +1532,15 @@ const tween = new TWEEN.Tween(mesh.position)
         const intersects = raycaster.intersectObjects( scene.children );
        
         if ( intersects.length > 0 ) {
-            if (intersects[0].object.name != null){
-                console.log("Clicked on: "+intersects[0].object.name +" "+ intersects[0].object);
-            }
-            if (typeof(intersects[0].object.callback) == 'function'){
-                intersects[0].object.callback();
-            }
+            for (const hit of intersects){
+                if (hit.object.name != null && hit.object.name.length>0){
+                    console.log("Clicked on: "+intersects[0].object.name +" "+ intersects[0].object);
+                    if (typeof(intersects[0].object.callback) == 'function'){
+                        intersects[0].object.callback();
+                        break
+                    }
+                }
+         }
         }
     }
 
