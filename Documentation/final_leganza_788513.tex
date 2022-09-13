@@ -58,15 +58,16 @@ The following libraries were used:
 Props were dowloaded from sketchfab.org, cleaed and their topology modified in Blender and then exported in GLTF format:
 
 \begin{itemize}
- \item Castle
- \item Phoenix
- \item Boat
- \item Crab
+ \item Castle \url{https://sketchfab.com/3d-models/sea-keep-lonely-watcher-09a15a0c14cb4accaf060a92bc70413d}
+ \item Phoenix \url{https://sketchfab.com/3d-models/phoenix-king-d04bb96c5fb846c68b13754a8ece96a2}
+ \item Boat \url{https://www.cadnav.com/3d-models/model-41627.html}
+ \item Crab \url{https://sketchfab.com/3d-models/animated-crab-bbfe14b8698d4cdf901f90536b7d4e1e}
+ \item Pricess \url{https://sketchfab.com/3d-models/low-poly-princess-rigged-9ab4bcd080b34583a1f837a06cd3efb0}
 \end{itemize}
 
-Most of the models required to be cleaned up, their structure and original materials to be modified too. To improve performances the polygons of the models were reduced to quite a 1/10 of the original.
+All models required to be cleaned up, their structure and original materials to be modified too. To improve performances the polygons of the models were reduced to different ratios.
 
-All the animated models were rigged with bones using as a single model  segment so in Blender the models were all splitted as required to accomplish the task to animate "manually" in three.js
+All the animated models were rigged with digital bones most of the time using a single model mesh so in Blender these models were all separated as needed to accomplish the task to animate "manually" in three.js
 
 Leaves on the water were created using a simple transparent plane and applying on realtime downloaded textures, while fireflies where created using a plane with random color.
 
@@ -100,6 +101,7 @@ The GUI was developed using DAT.GUI, the whole interaction is controlled by java
 \caption{Menu views}
 \end{figure}
 
+\clearpage
 
 \section{Day/Night mode}
 
@@ -116,21 +118,23 @@ Switching to day/night mode using the GUI button lets to switch to different loo
  \item Switching to night/day also customizes the lights with different colors and intensities to improve the scene look.
  \end{itemize}
  
+ 
 \begin{figure}[H]
 \centering
-\caption{The DAY mode look using exampke water shader}
+\caption{The DAY mode look using MODEL water shader}
+\includegraphics[width=0.8\textwidth,keepaspectratio]{day_sea}
+\caption{The NIGTH mode look using MODEL water shader}
+\includegraphics[width=0.8\textwidth,keepaspectratio]{night_sea}
+\end{figure}
+ 
+\begin{figure}[H]
+\centering
+\caption{The DAY mode look using THREE.JS EXAMPLE water shader}
 \includegraphics[width=0.9\textwidth,keepaspectratio]{day}
-\caption{The NIGTH mode look using example water shader}
+\caption{The NIGTH mode look using THREE.JS EXAMPLE water shader}
 \includegraphics[width=0.9\textwidth,keepaspectratio]{night}
 \end{figure}
 
-\begin{figure}[H]
-\centering
-\caption{The DAY mode look using exampke water shader}
-\includegraphics[width=0.8\textwidth,keepaspectratio]{day_sea}
-\caption{The NIGTH mode look using example water shader}
-\includegraphics[width=0.8\textwidth,keepaspectratio]{night_sea}
-\end{figure}
 
 \section{Sea}
 
@@ -143,6 +147,10 @@ Switching to day/night mode using the GUI button lets to switch to different loo
 \caption{The THREE.JS/examples sea}
 \includegraphics[width=0.8\textwidth]{sea_example}
 \end{figure}
+
+\clearpage
+
+Animation code:
 
 \begin{verbatim}
  function animateLiquid(target){
@@ -258,7 +266,8 @@ Leaves were created with a simple double side transparent plane usig a custom ve
 
                         vec4 newPositon = vec4(sin(delta + u_time)*0.1,0.0,0.0,0.0);
 
-                        gl_Position = (projectionMatrix * modelViewMatrix * vec4(position,1.0)) + newPositon;
+                        gl_Position = (projectionMatrix * modelViewMatrix * \	
+                        (position,1.0)) + newPositon;
                     }
                 `,
                 fragmentShader: `
@@ -403,6 +412,7 @@ The following elements were animated:
  \item Torches: flame scales and rotates, their light glows randomly
  \item Leaves on the water: oscillate on the surface and float vertically
  \item Phoenix (day mode) flies and rotate around a spline (CatmullRomCurve3)
+ \item Princess (day mode): waves the user and rotates around itself
  \item Boat (night mode) rotate around castle and floats up/down
  \item Boat lantern (night mode): oscillates during boat movement
  \item Crab (night mnode): every leg moves, claws move, crab moves left/right, crab lookA the camera
@@ -427,24 +437,34 @@ The original model was rigged and was a sigle mesh, the first operation that was
 
 The boat was cleaned up, the pivot was changed to a proper position, the lantern was separated from the boat and the pivot set in the correct position for both of them to proper support the animation process.
 
-\begin{center}
 \begin{figure}[H]
+\centering
 \caption{The boat structure}
 \includegraphics[width=1\textwidth]{boat}
 \end{figure}
-\end{center}
+
+
+\section{Princess}
+
+The princess was cleaned up, the mesh was a serie of geometries, a new hierarchy was created, its poly count was reduced using Blender modifier; all the pivots were changed to match a proper position; crab legs are animated using Tween.js using the same approach of the Phoenix so using model passed custom properties. The princess updates it's rotation using the mesh.lookAt(camera.position) so it's always looking towards the user.
+
+\begin{figure}[H]
+\centering
+\caption{The princess structure}
+\includegraphics[width=0.8\textwidth]{princess}
+\caption{The princess waving}
+\includegraphics[width=0.8\textwidth]{princess_hello}
+\end{figure}
 
 
 \section{Crab}
 
-The crab was cleaned up, the mesh was ann unique geometry, so it was splitted in segments and its poly counts  wasreduced using Blender modifier; all the pivots were changed to match a proper position; crab legs are animated using Tween.js using the same approach of the Phoenix so using model passed custom properties. The crab updates it's rotation using the mesh.lookAt(camera.position) so always lookig towards the user.
-
-\begin{center}
+The crab was cleaned up, the mesh was an unique geometry, so it was splitted in segments with a new hierarchy and its poly count was reduced using Blender modifier; all the pivots were changed to match a proper position; crab legs are animated using Tween.js using the same approach of the Phoenix so using model passed custom properties. The crab updates it's rotation using the mesh.lookAt(camera.position) so it's always looking towards the user.
 \begin{figure}[H]
+\centering
 \caption{The crab structure}
 \includegraphics[width=1\textwidth]{crab}
 \end{figure}
-\end{center}
 
 \begin{verbatim}
 function animateCrabMesh(mesh, axis, delta, delay, easing, speed = 1){
@@ -487,6 +507,19 @@ The lights used in the scene were:
 \item A spot light on the boat
 \end{itemize}
 
+
+\section{Post processing}
+
+A bloom effect is optionally available in the "post processing" menu area, different settings are available.
+
+\begin{figure}[H]
+\centering
+\caption{The bloom effect off}
+\includegraphics[width=0.8\textwidth]{bloom_off}
+\caption{The bloom effect on}
+\includegraphics[width=0.8\textwidth]{bloom_on}
+\end{figure}
+
 \section{Audio}
 
 A seashore audio loop sound effect is provided, during the day mode a seagull sound is played too, while during the night a crickets soud is played.
@@ -494,9 +527,7 @@ A seashore audio loop sound effect is provided, during the day mode a seagull so
 \section{Render loop}
 
 \begin{verbatim}
- function animate() {
-
-        if (loading){
+  if (loading){
             return
         }
 
@@ -553,6 +584,14 @@ A seashore audio loop sound effect is provided, during the day mode a seagull so
                 torch.mesh.material.uniforms["u_time"].value += deltaTime;
             }
         }
+
+        //Princess
+        if (princess!=null && princess.visible) {
+            princess.lookAt(camera.position)
+            princess.rotation.z = 0
+            princess.rotation.x = 0
+        }
+
        
         //Phoenix animation
         if (phoenix!=null) {
@@ -566,8 +605,11 @@ A seashore audio loop sound effect is provided, during the day mode a seagull so
         });
 
         //Crab
-        if (crab!=null)
-        crab.lookAt(camera.position)
+        if (crab!=null && crab.visible) {
+            crab.lookAt(camera.position)
+            crab.rotation.z = 0
+            crab.rotation.x = 0
+        }
 
         requestAnimationFrame( animate );
         !postProcessingMode ? renderer.render( scene, camera ) : \
@@ -575,16 +617,11 @@ A seashore audio loop sound effect is provided, during the day mode a seagull so
         TWEEN.update();
 
         stats.update()
-    }
 \end{verbatim}
 
 \section{Notes}
 
-The performances during camera look aren't great, performances should be improved: using lightmapping, storing shadows and reducing polygon count, also moving most of  the animations to  the shaders will improve the  whole experience reducing render time. An alternative version of the water is provided enabling the proper option available under the "sea" menu voice (the sea is took from examples folder).
-
-\bigbreak
-\bigbreak
-Andrea Leganza - 788513
+The performances during camera look aren't great, performances should be improved: using lightmapping, storing shadows and reducing polygon count, also moving most of  the animations to  the shaders will improve the  whole experience reducing render time. An alternative version of the water is provided enabling the proper option available under the "sea" menu voice (the sea shader  is the one available from examples folder, vertical animation is made using tween.js).
 
 \end{document}
 

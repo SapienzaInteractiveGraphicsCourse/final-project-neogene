@@ -144,6 +144,7 @@
     var skybox;
     var skyEmbedded;
     var sea;
+    var sand;
 
     var floatingTarget;
     
@@ -281,6 +282,7 @@
                         o.castShadow = false;
                         o.receiveShadow = true;
                         o.material.transparent = false
+                        sand = o;
                     }
                     else if (o.name.toLowerCase() == "base"){
                         castle.push(o);
@@ -539,12 +541,71 @@
             scene.add( phoenixGroup );
 
             loadPhoenixPath();
+
+            loadPrincess(firstLoad)
             
+        })
+    }
+
+//Princess
+
+function removePrincess(){
+    if (princess!=null){
+            princess.visible = false
+
+            for (let tween of princessTweens){
+                tween.stop()
+            }
+            
+        }
+    }
+
+    var princessTweens = []
+    var princess
+
+    function loadPrincess(firstLoad = true){
+
+        if (princess!=null){
+            princess.visible = true
+
+            for (let tween of princessTweens){
+                tween.start()
+            }
+
+            return
+        }
+
+        const loader = new GLTFLoader();
+
+        loader.load( '3D/princess/princess.gltf', function ( gltf ) {
+            //gltf.scene.rotation.set(0,-Math.PI/4,0);
+            gltf.scene.traverse((o) => {
+                if (o.isMesh) {
+                    o.castShadow = false;
+                    o.receiveShadow = false;
+
+                    if (debugMode){
+                        console.log("Loading mesh: "+o.name + " data (axis: "+o.userData.axis+" prop: "+o.userData.prop+")");
+                    }
+
+                    if (o.userData.axis!=null && o.userData.prop!=0){
+                        animatePrincess(o,o.userData.axis,o.userData.prop, o.userData.delay, o.userData.easing, o.userData.speed != null ? o.userData.speed : 1)
+                    }
+                }
+            }
+            )
+            
+            princess = gltf.scene.getObjectByName("Princess");
+            princess.position.set(-0.1,3.2,0.3);
+            scene.add( princess );
+
             if (firstLoad){
                 endLoadingMeshes();
             }
+            
         })
     }
+
 
 //Crab
     function remoteCrab(){
@@ -672,6 +733,27 @@
         phoenixTweens.push(tween)
     
     }
+
+function animatePrincess(mesh, axis, delta, delay, easing, speed = 1){
+
+if (debugMode){
+    console.log("Animating princess: "+mesh.name);
+}
+
+const tween = new TWEEN.Tween(mesh.rotation)
+    .to({[axis]:mesh.rotation[axis] + 0.2*delta},1000*speed)
+    .yoyo(true)
+    .delay(delay != null ? delay*1000 : 0)
+    .repeat(Infinity)
+    .easing(easing != null ? (easing == 1 ? TWEEN.Easing.Linear.None : TWEEN.Easing.Quadratic.InOut) : TWEEN.Easing.Linear.None)
+    /*.onUpdate(function () {
+      
+    })*/
+    .start()
+
+    princessTweens.push(tween)
+
+}
 
 function animateCrabMesh(mesh, axis, delta, delay, easing, speed = 1){
 
@@ -884,7 +966,7 @@ const tween = new TWEEN.Tween(mesh.position)
           {
             textureWidth: 512,
             textureHeight: 512,
-            waterNormals: new THREE.TextureLoader().load('textures/waternormals.jpg', function ( texture ) {
+            waterNormals: new THREE.TextureLoader().load('Textures/waternormals.jpg', function ( texture ) {
               texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             }),
             alpha: 1.0,
@@ -1069,7 +1151,10 @@ const tween = new TWEEN.Tween(mesh.position)
                 placeFireFlies()
 
                 loadBoat(floatingTarget)
+
                 loadCrab()
+
+                removePrincess()
 
                 playerCrickets.play()
                 playerSeagull.pause()
@@ -1106,6 +1191,8 @@ const tween = new TWEEN.Tween(mesh.position)
                 remoteCrab()
 
                 loadPhoenix(false)
+
+                loadPrincess()
 
                 playerCrickets.pause()
                 playerCrickets.currentTime = 0
@@ -1168,6 +1255,11 @@ const tween = new TWEEN.Tween(mesh.position)
             piece.visible = value;
            }
         )});
+
+        var princessParams = {on: true};
+        sceneFolder.add(envParams, 'on',).name("Princess").onChange( function(value) {
+           princess.visible = value;       
+        });
 
         var floatingParams = {on: floatingMode};
         sceneFolder.add(floatingParams, 'on',).name("Leaves").onChange( function(value) {
@@ -1239,7 +1331,7 @@ const tween = new TWEEN.Tween(mesh.position)
             }
         } );
 
-        if (true) torchesFolder.open();
+        if (opened) torchesFolder.open();
 
         //Spotlight
         const lightsFolder = gui.addFolder("Spotlight")
@@ -1663,6 +1755,14 @@ const tween = new TWEEN.Tween(mesh.position)
                 torch.mesh.material.uniforms["u_time"].value += deltaTime;
             }
         }
+
+        //Princess
+        if (princess!=null && princess.visible) {
+            princess.lookAt(camera.position)
+            princess.rotation.z = 0
+            princess.rotation.x = 0
+        }
+
        
         //Phoenix animation
         if (phoenix!=null) {
@@ -1676,8 +1776,11 @@ const tween = new TWEEN.Tween(mesh.position)
         });
 
         //Crab
-        if (crab!=null)
-        crab.lookAt(camera.position)
+        if (crab!=null && crab.visible) {
+            crab.lookAt(camera.position)
+            crab.rotation.z = 0
+            crab.rotation.x = 0
+        }
 
         requestAnimationFrame( animate );
         !postProcessingMode ? renderer.render( scene, camera ) : postProcessing.composer.render(deltaTime);
@@ -1743,6 +1846,7 @@ const tween = new TWEEN.Tween(mesh.position)
         ambientLight = new THREE.AmbientLight(0xffffff)
         ambientLight.intensity = 2;
         scene.add(ambientLight);
+        
 
     //water
         if (waterMode){
